@@ -1,0 +1,12 @@
+result
+result-*
+.direnv
+.envrc
+
+# AI context — local only, never committed
+AI-progress.json
+AI-tasks.json
+CLAUDE.md
+GEMINI.md
+.claude/
+.gemini/

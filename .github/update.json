@@ -1,0 +1,16 @@
+{
+  "package": "mullvad-vpn",
+  "upstream": {
+    "type": "github-release",
+    "owner": "mullvad",
+    "repo": "mullvadvpn-app"
+  },
+  "packageFile": "overlay.nix",
+  "hashes": [
+    "hash"
+  ],
+  "verify": {
+    "binary": "mullvad",
+    "args": "--version"
+  }
+}
