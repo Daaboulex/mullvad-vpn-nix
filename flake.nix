@@ -17,12 +17,17 @@
       ...
     }:
     let
-      systems = [ "x86_64-linux" "aarch64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      pkgsFor = system: import nixpkgs {
-        inherit system;
-        overlays = [ self.overlays.default ];
-      };
+      pkgsFor =
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
+        };
     in
     {
       packages = forAllSystems (system: {
@@ -50,15 +55,21 @@
         build = self.packages.${system}.default;
       });
 
-      devShells = forAllSystems (system:
+      devShells = forAllSystems (
+        system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
         in
         {
           default = pkgs.mkShellNoCC {
             inherit (self.checks.${system}.pre-commit) shellHook;
-            packages = with pkgs; [ nil nixfmt-rfc-style jq ];
+            packages = with pkgs; [
+              nil
+              nixfmt-rfc-style
+              jq
+            ];
           };
-        });
+        }
+      );
     };
 }

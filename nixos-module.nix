@@ -20,7 +20,11 @@ let
 
   applyScript = pkgs.writeShellApplication {
     name = "mullvad-apply-settings";
-    runtimeInputs = with pkgs; [ jq systemd coreutils ];
+    runtimeInputs = with pkgs; [
+      jq
+      systemd
+      coreutils
+    ];
     text = ''
       set -eu
       SETTINGS=/etc/mullvad-vpn/settings.json
@@ -106,23 +110,66 @@ in
       default = { };
       type = lib.types.submodule {
         options = {
-          autoConnect = lib.mkOption { type = lib.types.bool; default = true; description = "Connect automatically on daemon start."; };
-          lockdownMode = lib.mkOption { type = lib.types.bool; default = false; description = "Block all traffic when VPN disconnected (kill-switch)."; };
-          lan = lib.mkOption { type = lib.types.bool; default = true; description = "Allow LAN sharing while connected."; };
-          betaProgram = lib.mkOption { type = lib.types.bool; default = false; description = "Opt into beta update notifications."; };
+          autoConnect = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Connect automatically on daemon start.";
+          };
+          lockdownMode = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Block all traffic when VPN disconnected (kill-switch).";
+          };
+          lan = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Allow LAN sharing while connected.";
+          };
+          betaProgram = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Opt into beta update notifications.";
+          };
 
           dns = lib.mkOption {
             default = { };
             type = lib.types.submodule {
               options = {
-                mode = lib.mkOption { type = lib.types.enum [ "default" "custom" ]; default = "default"; };
-                blockAds = lib.mkOption { type = lib.types.bool; default = true; };
-                blockTrackers = lib.mkOption { type = lib.types.bool; default = true; };
-                blockMalware = lib.mkOption { type = lib.types.bool; default = true; };
-                blockAdultContent = lib.mkOption { type = lib.types.bool; default = false; };
-                blockGambling = lib.mkOption { type = lib.types.bool; default = true; };
-                blockSocialMedia = lib.mkOption { type = lib.types.bool; default = true; };
-                customServers = lib.mkOption { type = lib.types.listOf lib.types.str; default = [ ]; };
+                mode = lib.mkOption {
+                  type = lib.types.enum [
+                    "default"
+                    "custom"
+                  ];
+                  default = "default";
+                };
+                blockAds = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
+                blockTrackers = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
+                blockMalware = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
+                blockAdultContent = lib.mkOption {
+                  type = lib.types.bool;
+                  default = false;
+                };
+                blockGambling = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
+                blockSocialMedia = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
+                customServers = lib.mkOption {
+                  type = lib.types.listOf lib.types.str;
+                  default = [ ];
+                };
               };
             };
           };
@@ -131,7 +178,12 @@ in
             default = { };
             type = lib.types.submodule {
               options.mode = lib.mkOption {
-                type = lib.types.enum [ "auto" "off" "udp2tcp" "shadowsocks" ];
+                type = lib.types.enum [
+                  "auto"
+                  "off"
+                  "udp2tcp"
+                  "shadowsocks"
+                ];
                 default = "auto";
                 description = "WireGuard obfuscation. Replaces legacy OpenVPN bridges.";
               };
@@ -153,9 +205,21 @@ in
             default = { };
             type = lib.types.submodule {
               options = {
-                direct = lib.mkOption { type = lib.types.bool; default = true; description = "Direct API access."; };
-                mullvadBridges = lib.mkOption { type = lib.types.bool; default = true; description = "API via bridge relay (when direct blocked)."; };
-                encryptedDnsProxy = lib.mkOption { type = lib.types.bool; default = true; description = "API via DoH (when direct blocked)."; };
+                direct = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                  description = "Direct API access.";
+                };
+                mullvadBridges = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                  description = "API via bridge relay (when direct blocked).";
+                };
+                encryptedDnsProxy = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                  description = "API via DoH (when direct blocked).";
+                };
               };
             };
           };
@@ -164,14 +228,32 @@ in
             default = { };
             type = lib.types.submodule {
               options = {
-                quantumResistant = lib.mkOption { type = lib.types.enum [ "auto" "on" "off" ]; default = "on"; };
-                ipv6 = lib.mkOption { type = lib.types.bool; default = true; };
+                quantumResistant = lib.mkOption {
+                  type = lib.types.enum [
+                    "auto"
+                    "on"
+                    "off"
+                  ];
+                  default = "on";
+                };
+                ipv6 = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
                 daita = lib.mkOption {
                   default = { };
                   type = lib.types.submodule {
                     options = {
-                      enable = lib.mkOption { type = lib.types.bool; default = true; description = "DAITA traffic-analysis defense (~5-10% throughput cost)."; };
-                      useMultihopIfNecessary = lib.mkOption { type = lib.types.bool; default = true; description = "Auto-enable multihop when chosen exit doesn't support DAITA."; };
+                      enable = lib.mkOption {
+                        type = lib.types.bool;
+                        default = true;
+                        description = "DAITA traffic-analysis defense (~5-10% throughput cost).";
+                      };
+                      useMultihopIfNecessary = lib.mkOption {
+                        type = lib.types.bool;
+                        default = true;
+                        description = "Auto-enable multihop when chosen exit doesn't support DAITA.";
+                      };
                     };
                   };
                 };

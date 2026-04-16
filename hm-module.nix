@@ -49,7 +49,10 @@ in
               Usually you want the daemon-side one (more reliable).
             '';
           };
-          enableSystemNotifications = lib.mkOption { type = lib.types.bool; default = true; };
+          enableSystemNotifications = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+          };
           monochromaticIcon = lib.mkOption {
             type = lib.types.bool;
             default = true;
