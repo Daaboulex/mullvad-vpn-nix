@@ -49,34 +49,14 @@ Add as a flake input:
 
   services.mullvad-vpn-declarative = {
     enable = true;
-    settings = {
-      autoConnect = true;
-      lockdownMode = false;          # off — phone tethering / LAN convenience
-      lan = true;
-      dns = {
-        blockAds = true;
-        blockTrackers = true;
-        blockMalware = true;
-        blockGambling = true;
-        blockSocialMedia = true;
-        blockAdultContent = false;
-      };
-      obfuscation.mode = "auto";
-      multihop.enable = true;
-      apiAccess = {
-        direct = true;
-        mullvadBridges = true;
-        encryptedDnsProxy = true;
-      };
-      tunnel = {
-        quantumResistant = "on";
-        ipv6 = true;
-        daita = {
-          enable = true;
-          useMultihopIfNecessary = true;
-        };
-      };
-    };
+    # Defaults match Mullvad daemon defaults. Override only what you need.
+    # settings = {
+    #   lockdownMode = true;            # kill-switch
+    #   dns.blockAds = true;            # opt-in to additional blockers
+    #   dns.blockMalware = true;
+    #   tunnel.daita.enable = true;     # traffic-analysis defense
+    #   relay.ownership = "owned";      # Mullvad-owned only
+    # };
   };
 }
 ```
@@ -89,16 +69,9 @@ Add as a flake input:
 
   programs.mullvad-vpn-gui = {
     enable = true;
-    autostart = false;
-    settings = {
-      preferredLocale = "system";
-      autoConnect = false;            # GUI auto-connect (separate from daemon-level)
-      enableSystemNotifications = true;
-      monochromaticIcon = true;
-      startMinimized = true;
-      unpinnedWindow = true;
-      animateMap = false;             # off — saves CPU on weak hardware
-    };
+    # All GUI settings have sensible defaults. Override only what you need.
+    # autostart = true;
+    # settings.startMinimized = false;
   };
 }
 ```
@@ -113,9 +86,13 @@ Add as a flake input:
 | `lockdownMode` | `false` | Block all traffic when disconnected (kill-switch) |
 | `lan` | `true` | Allow local-network sharing while connected |
 | `betaProgram` | `false` | Beta update notifications |
-| `dns.mode` | `"default"` | `"default"` = Mullvad resolvers + blockers, `"custom"` = your IPs |
-| `dns.block{Ads,Trackers,Malware,Gambling,SocialMedia}` | `true` | Standard blockers (sane defaults on) |
-| `dns.blockAdultContent` | `false` | Off by default — opt-in |
+| `dns.mode` | `"default"` | `"default"` = Mullvad resolvers (with optional blockers), `"custom"` = your IPs |
+| `dns.blockAds` | `false` | Block ad-serving domains |
+| `dns.blockTrackers` | `true` | Block tracking domains (Mullvad daemon default) |
+| `dns.blockMalware` | `false` | Block known-malware domains |
+| `dns.blockAdultContent` | `false` | Block adult-content domains |
+| `dns.blockGambling` | `false` | Block gambling domains |
+| `dns.blockSocialMedia` | `false` | Block social-media domains |
 | `dns.customServers` | `[ ]` | DNS IPs when mode = `"custom"` |
 | `obfuscation.mode` | `"auto"` | `auto` / `off` / `udp2tcp` / `shadowsocks` (replaces deprecated OpenVPN bridges) |
 | `multihop.enable` | `true` | Route through entry-then-exit relay |

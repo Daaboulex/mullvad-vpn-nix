@@ -178,9 +178,11 @@ in
                   ];
                   default = "default";
                 };
+                # Defaults match Mullvad daemon defaults (settings_version=15):
+                # only trackers blocked by default. All other blockers are opt-in.
                 blockAds = lib.mkOption {
                   type = lib.types.bool;
-                  default = true;
+                  default = false;
                 };
                 blockTrackers = lib.mkOption {
                   type = lib.types.bool;
@@ -188,7 +190,7 @@ in
                 };
                 blockMalware = lib.mkOption {
                   type = lib.types.bool;
-                  default = true;
+                  default = false;
                 };
                 blockAdultContent = lib.mkOption {
                   type = lib.types.bool;
@@ -196,11 +198,11 @@ in
                 };
                 blockGambling = lib.mkOption {
                   type = lib.types.bool;
-                  default = true;
+                  default = false;
                 };
                 blockSocialMedia = lib.mkOption {
                   type = lib.types.bool;
-                  default = true;
+                  default = false;
                 };
                 customServers = lib.mkOption {
                   type = lib.types.listOf lib.types.str;
