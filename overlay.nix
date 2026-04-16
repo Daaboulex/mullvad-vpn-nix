@@ -14,5 +14,14 @@ _final: prev: {
       url = "https://github.com/mullvad/mullvadvpn-app/releases/download/${version}/MullvadVPN-${version}_amd64.deb";
       hash = "sha256-HleajbEbw5Z1ab/E4zSR+GxDOIuvegP4N9yRFZYv7z4=";
     };
+
+    # Upstream nixpkgs added versionCheckHook to mullvad-vpn — runs
+    # `mullvad-vpn --version` which is the Electron GUI. Electron tries to
+    # enter Chromium's SUID sandbox; the sandbox helper needs mode 4755 +
+    # owner root, which the read-only Nix store can never provide. The
+    # check FATAL-aborts and CI fails (build artifact is fine, just the
+    # post-build version-check). Use the CLI binary instead — it's the
+    # daemon-control tool, no Electron.
+    versionCheckProgram = "$out/bin/mullvad";
   });
 }

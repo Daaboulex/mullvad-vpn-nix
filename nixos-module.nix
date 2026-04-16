@@ -399,6 +399,17 @@ in
       package = cfg.package;
     };
 
+    # NixOS's `services.mullvad-vpn` only auto-loads the `tun` module. Without
+    # `wireguard` pre-loaded, mullvad-daemon falls back to wg-userspace
+    # (boringtun-style TUN). The fallback path has a known race: it creates
+    # the TUN device and immediately tries `ip -6 addr add` before the kernel
+    # finishes registering /proc/sys/net/ipv6/conf/wg-mullvad/. That returns
+    # ENOENT, talpid bubbles it up as `Failed to set IPv6 address`, the
+    # daemon enters auto-error-state lockdown and blocks ALL traffic — the
+    # symptom looks like "WiFi died." Loading the kernel module ahead of
+    # time eliminates the userspace-fallback path entirely.
+    boot.kernelModules = [ "wireguard" ];
+
     systemd.services.mullvad-apply-settings = {
       description = "Apply declarative Mullvad VPN settings (settings.json patch)";
       after = [ "mullvad-daemon.service" ];
