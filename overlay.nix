@@ -21,7 +21,8 @@ _final: prev: {
     # owner root, which the read-only Nix store can never provide. The
     # check FATAL-aborts and CI fails (build artifact is fine, just the
     # post-build version-check). Use the CLI binary instead — it's the
-    # daemon-control tool, no Electron.
-    versionCheckProgram = "$out/bin/mullvad";
+    # daemon-control tool, no Electron. `placeholder "out"` is required —
+    # a literal "$out/..." string would not be expanded by the hook.
+    versionCheckProgram = "${placeholder "out"}/bin/mullvad";
   });
 }
