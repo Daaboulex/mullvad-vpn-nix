@@ -15,14 +15,19 @@ _final: prev: {
       hash = "sha256-HleajbEbw5Z1ab/E4zSR+GxDOIuvegP4N9yRFZYv7z4=";
     };
 
-    # Upstream nixpkgs added versionCheckHook to mullvad-vpn — runs
-    # `mullvad-vpn --version` which is the Electron GUI. Electron tries to
-    # enter Chromium's SUID sandbox; the sandbox helper needs mode 4755 +
-    # owner root, which the read-only Nix store can never provide. The
-    # check FATAL-aborts and CI fails (build artifact is fine, just the
-    # post-build version-check). Use the CLI binary instead — it's the
-    # daemon-control tool, no Electron. `placeholder "out"` is required —
-    # a literal "$out/..." string would not be expanded by the hook.
+    # Override versionCheckHook target: use CLI not GUI.
+    #
+    # WHY: default target is $out/bin/mullvad-vpn — the Electron GUI.
+    # Electron tries to enter Chromium's SUID sandbox; the sandbox helper
+    # needs mode 4755 + owner root, which the read-only Nix store cannot
+    # provide. Check FATAL-aborts in CI even though the build artifact is
+    # fine. The CLI binary `mullvad` reports the same version with no
+    # Electron dependency.
+    #
+    # SYNTAX: `placeholder "out"` is mandatory. This attribute is evaluated
+    # by Nix at instantiation time (before $out exists), not by bash —
+    # a literal "$out/..." string is passed through unsubstituted and the
+    # hook tries to open a file literally named `$out/bin/mullvad`.
     versionCheckProgram = "${placeholder "out"}/bin/mullvad";
   });
 }

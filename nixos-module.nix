@@ -44,9 +44,20 @@ let
 
       log() { echo "[mullvad-apply] $*"; }
 
+      # Wait up to 30s for the daemon to create settings.json on first boot.
+      # Without this, on a fresh install the file doesn't exist when this
+      # unit runs (we ordered after mullvad-daemon.service start, but the
+      # daemon writes settings.json LAZILY a few seconds after start). The
+      # old early-exit + RemainAfterExit combo silently skipped the patch
+      # for the entire boot session, leaving user-declared settings unapplied
+      # until the next reboot — a privacy regression for lockdownMode users.
+      for _ in $(seq 1 30); do
+        [ -f "$SETTINGS" ] && break
+        sleep 1
+      done
       if [ ! -f "$SETTINGS" ]; then
-        log "no settings.json yet — daemon will create on first start; skipping"
-        exit 0
+        log "settings.json never appeared after 30s — daemon failed to start; aborting"
+        exit 1
       fi
       VER=$(jq -r '.settings_version // empty' "$SETTINGS")
       if [ "$VER" != "15" ]; then
@@ -56,7 +67,11 @@ let
 
       log "stopping mullvad-daemon"
       systemctl stop mullvad-daemon.service
-      trap 'systemctl start mullvad-daemon.service || true' EXIT
+      # Trap restarts the daemon on any exit path. We do NOT swallow start
+      # failures — if the daemon refuses to come back, the unit must fail
+      # so the operator sees it (vs systemd marking us "active (exited)"
+      # while the daemon stays dead with stale settings).
+      trap 'systemctl start mullvad-daemon.service' EXIT
       cp -a "$SETTINGS" "$BACKUP"
 
       log "patching settings.json (settings_version=15)"
@@ -106,7 +121,9 @@ let
         exit 1
       }
       mv "$SETTINGS".tmp "$SETTINGS"
-      chmod 644 "$SETTINGS"
+      # 600: file may contain account tokens after first login. World-readable
+      # (644) was an oversight from earlier iterations.
+      chmod 600 "$SETTINGS"
       chown root:root "$SETTINGS"
 
       log "starting mullvad-daemon"
@@ -399,24 +416,47 @@ in
       package = cfg.package;
     };
 
-    # NixOS's `services.mullvad-vpn` only auto-loads the `tun` module. Without
-    # `wireguard` pre-loaded, mullvad-daemon falls back to wg-userspace
-    # (boringtun-style TUN). The fallback path has a known race: it creates
-    # the TUN device and immediately tries `ip -6 addr add` before the kernel
-    # finishes registering /proc/sys/net/ipv6/conf/wg-mullvad/. That returns
-    # ENOENT, talpid bubbles it up as `Failed to set IPv6 address`, the
-    # daemon enters auto-error-state lockdown and blocks ALL traffic — the
-    # symptom looks like "WiFi died." Loading the kernel module ahead of
-    # time eliminates the userspace-fallback path entirely.
+    # Pre-load the wireguard kernel module. Vanilla NixOS `services.mullvad-vpn`
+    # only adds `tun`. Without `wireguard` loaded, mullvad-daemon falls back
+    # to wg-userspace (boringtun-style TUN). That fallback has a race: it
+    # creates the TUN device and immediately tries to set an IPv6 address
+    # before the kernel finishes registering /proc/sys/net/ipv6/conf/wg-mullvad/.
+    # ENOENT bubbles up as `Failed to set IPv6 address`, the daemon enters
+    # auto-error-state lockdown and blocks ALL traffic — symptom looks like
+    # "WiFi died" on rebuild. Native kernel WG creates the sysctl tree
+    # synchronously with link creation, so no race.
+    #
+    # NOTE: this fix belongs upstream in nixpkgs's services.mullvad-vpn
+    # module (one-line patch: "tun" → [ "tun" "wireguard" ]). Keep this here
+    # until that PR lands; harmless duplicate after.
     boot.kernelModules = [ "wireguard" ];
+
+    # Order mullvad-daemon AFTER kernel-module load. boot.kernelModules
+    # only declares membership of the load list — it does not order
+    # downstream services. Without this, on cold boot mullvad-daemon can
+    # start before systemd-modules-load.service finishes, hit the userspace
+    # fallback, and reproduce the original ENOENT lockdown for one boot.
+    systemd.services.mullvad-daemon = {
+      after = [ "systemd-modules-load.service" ];
+      requires = [ "systemd-modules-load.service" ];
+    };
 
     systemd.services.mullvad-apply-settings = {
       description = "Apply declarative Mullvad VPN settings (settings.json patch)";
+      # `wants =` (not bare `after =`) ensures mullvad-daemon is actually
+      # pulled in. `restartTriggers` re-fires this unit when applyScript
+      # changes (i.e., when user edits declarative settings) — without it,
+      # systemd's "active (exited)" oneshot semantics would skip re-runs
+      # until reboot.
       after = [ "mullvad-daemon.service" ];
+      wants = [ "mullvad-daemon.service" ];
       wantedBy = [ "multi-user.target" ];
+      restartTriggers = [ applyScript ];
       serviceConfig = {
         Type = "oneshot";
-        RemainAfterExit = true;
+        # RemainAfterExit dropped: we WANT the unit to re-fire on every
+        # nixos-rebuild switch (via restartTriggers + activation), not
+        # be silently skipped because systemd thinks it's already done.
         ExecStart = "${applyScript}/bin/mullvad-apply-settings";
       };
     };
