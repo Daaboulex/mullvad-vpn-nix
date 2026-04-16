@@ -17,6 +17,18 @@ let
   # clobber.
   b = v: if v then "true" else "false";
   q = v: "\"${v}\"";
+  # Mullvad uses sentinel string "any" for unset constraints. Translate
+  # null → "any", string → "{ only: <string> }", list → "{ only: [...] }".
+  filterAny =
+    v:
+    if v == null then
+      "\"any\""
+    else if builtins.isList v then
+      "{\"only\": ${builtins.toJSON v}}"
+    else
+      "{\"only\": ${builtins.toJSON v}}";
+  # Port: null → "any" sentinel string, int → { only: { port: int } } shape.
+  portAny = v: if v == null then "\"any\"" else "{\"only\": ${toString v}}";
 
   applyScript = pkgs.writeShellApplication {
     name = "mullvad-apply-settings";
@@ -53,9 +65,16 @@ let
         | .lockdown_mode                                           = ${b s.lockdownMode}
         | .allow_lan                                               = ${b s.lan}
         | .show_beta_releases                                      = ${b s.betaProgram}
+        | .update_default_location                                 = ${b s.updateDefaultLocation}
         | .tunnel_options.wireguard.quantum_resistant              = ${q s.tunnel.quantumResistant}
         | .tunnel_options.wireguard.daita.enabled                  = ${b s.tunnel.daita.enable}
         | .tunnel_options.wireguard.daita.use_multihop_if_necessary = ${b s.tunnel.daita.useMultihopIfNecessary}
+        | .tunnel_options.wireguard.mtu                            = ${
+          if s.tunnel.mtu == null then "null" else toString s.tunnel.mtu
+        }
+        | .tunnel_options.wireguard.rotation_interval              = ${
+          if s.tunnel.rotationIntervalHours == null then "null" else toString s.tunnel.rotationIntervalHours
+        }
         | .tunnel_options.generic.enable_ipv6                      = ${b s.tunnel.ipv6}
         | .tunnel_options.dns_options.state                        = ${q s.dns.mode}
         | .tunnel_options.dns_options.default_options.block_ads           = ${b s.dns.blockAds}
@@ -66,10 +85,18 @@ let
         | .tunnel_options.dns_options.default_options.block_social_media  = ${b s.dns.blockSocialMedia}
         | .tunnel_options.dns_options.custom_options.addresses     = ${builtins.toJSON s.dns.customServers}
         | .obfuscation_settings.selected_obfuscation               = ${q s.obfuscation.mode}
+        | .obfuscation_settings.udp2tcp.port                       = ${portAny s.obfuscation.udp2tcpPort}
+        | .obfuscation_settings.shadowsocks.port                   = ${portAny s.obfuscation.shadowsocksPort}
+        | .obfuscation_settings.wireguard_port.port                = ${portAny s.obfuscation.wireguardPort}
         | .api_access_methods.direct.enabled                       = ${b s.apiAccess.direct}
         | .api_access_methods.mullvad_bridges.enabled              = ${b s.apiAccess.mullvadBridges}
         | .api_access_methods.encrypted_dns_proxy.enabled          = ${b s.apiAccess.encryptedDnsProxy}
         | .relay_settings.normal.wireguard_constraints.use_multihop = ${b s.multihop.enable}
+        | .relay_settings.normal.wireguard_constraints.ip_version   = ${q s.relay.ipVersion}
+        | .relay_settings.normal.providers                          = ${filterAny s.relay.providers}
+        | .relay_settings.normal.ownership                          = ${q s.relay.ownership}
+        | .relay_settings.normal.wireguard_constraints.entry_providers = ${filterAny s.relay.entryProviders}
+        | .relay_settings.normal.wireguard_constraints.entry_ownership = ${q s.relay.entryOwnership}
       ' "$BACKUP" > "$SETTINGS".tmp
 
       jq -e . "$SETTINGS".tmp >/dev/null || {
@@ -130,6 +157,15 @@ in
             default = false;
             description = "Opt into beta update notifications.";
           };
+          updateDefaultLocation = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Auto-update the daemon's stored "default location" pin as you
+              connect to different relays. False keeps a stable preferred
+              location across reconnects.
+            '';
+          };
 
           dns = lib.mkOption {
             default = { };
@@ -177,15 +213,32 @@ in
           obfuscation = lib.mkOption {
             default = { };
             type = lib.types.submodule {
-              options.mode = lib.mkOption {
-                type = lib.types.enum [
-                  "auto"
-                  "off"
-                  "udp2tcp"
-                  "shadowsocks"
-                ];
-                default = "auto";
-                description = "WireGuard obfuscation. Replaces legacy OpenVPN bridges.";
+              options = {
+                mode = lib.mkOption {
+                  type = lib.types.enum [
+                    "auto"
+                    "off"
+                    "udp2tcp"
+                    "shadowsocks"
+                  ];
+                  default = "auto";
+                  description = "WireGuard obfuscation. Replaces legacy OpenVPN bridges.";
+                };
+                udp2tcpPort = lib.mkOption {
+                  type = lib.types.nullOr lib.types.port;
+                  default = null;
+                  description = "Pin UDP2TCP port. null = daemon picks any available.";
+                };
+                shadowsocksPort = lib.mkOption {
+                  type = lib.types.nullOr lib.types.port;
+                  default = null;
+                  description = "Pin Shadowsocks port. null = daemon picks.";
+                };
+                wireguardPort = lib.mkOption {
+                  type = lib.types.nullOr lib.types.port;
+                  default = null;
+                  description = "Pin WireGuard port (when not obfuscated). null = daemon picks.";
+                };
               };
             };
           };
@@ -197,6 +250,64 @@ in
                 type = lib.types.bool;
                 default = true;
                 description = "Enable WireGuard multihop. DAITA's useMultihopIfNecessary can also auto-enable.";
+              };
+            };
+          };
+
+          relay = lib.mkOption {
+            default = { };
+            description = "Relay selection constraints — provider, ownership, IP version filters.";
+            type = lib.types.submodule {
+              options = {
+                ipVersion = lib.mkOption {
+                  type = lib.types.enum [
+                    "any"
+                    "v4"
+                    "v6"
+                  ];
+                  default = "any";
+                  description = "Tunnel IP version constraint.";
+                };
+                providers = lib.mkOption {
+                  type = lib.types.nullOr (lib.types.listOf lib.types.str);
+                  default = null;
+                  example = [
+                    "31173"
+                    "M247"
+                  ];
+                  description = ''
+                    Restrict relays to specific hosting providers.
+                    null = any provider. Use `mullvad relay list` to see provider names.
+                  '';
+                };
+                ownership = lib.mkOption {
+                  type = lib.types.enum [
+                    "any"
+                    "rented"
+                    "owned"
+                  ];
+                  default = "any";
+                  description = ''
+                    Filter relays by ownership.
+                    "owned" = Mullvad-owned servers (more privacy).
+                    "rented" = third-party datacenters.
+                    "any" = no filter.
+                  '';
+                };
+                entryProviders = lib.mkOption {
+                  type = lib.types.nullOr (lib.types.listOf lib.types.str);
+                  default = null;
+                  description = "Provider filter for the multihop entry relay. null = any.";
+                };
+                entryOwnership = lib.mkOption {
+                  type = lib.types.enum [
+                    "any"
+                    "rented"
+                    "owned"
+                  ];
+                  default = "any";
+                  description = "Ownership filter for the multihop entry relay.";
+                };
               };
             };
           };
@@ -239,6 +350,21 @@ in
                 ipv6 = lib.mkOption {
                   type = lib.types.bool;
                   default = true;
+                };
+                mtu = lib.mkOption {
+                  type = lib.types.nullOr lib.types.int;
+                  default = null;
+                  example = 1280;
+                  description = "Override tunnel MTU. null = daemon auto.";
+                };
+                rotationIntervalHours = lib.mkOption {
+                  type = lib.types.nullOr lib.types.int;
+                  default = null;
+                  example = 24;
+                  description = ''
+                    WireGuard key rotation interval in hours.
+                    null = daemon default (~7 days).
+                  '';
                 };
                 daita = lib.mkOption {
                   default = { };
