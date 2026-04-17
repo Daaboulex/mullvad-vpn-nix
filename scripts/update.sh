@@ -64,12 +64,22 @@ case "$UPSTREAM_TYPE" in
   github-release)
     OWNER=$(echo "$CONFIG" | jq -r '.upstream.owner')
     REPO=$(echo "$CONFIG" | jq -r '.upstream.repo')
-    API_URL="https://api.github.com/repos/$OWNER/$REPO/releases/latest"
-    LATEST_TAG=$(fetch_latest "curl -sfL '$API_URL' | jq -r '.tag_name'") || {
-      warn "Failed to fetch latest release from $OWNER/$REPO"
-      output "updated" "false"
-      exit 2
-    }
+    TAG_FILTER=$(echo "$CONFIG" | jq -r '.upstream.tagFilter // empty')
+    if [ -n "$TAG_FILTER" ]; then
+      # Use releases list API and filter tags (e.g. exclude android/ prefixed tags)
+      LATEST_TAG=$(fetch_latest "curl -sfL 'https://api.github.com/repos/$OWNER/$REPO/releases?per_page=50' | jq -r '[.[] | select(.prerelease == false) | .tag_name | select(test(\"$TAG_FILTER\"))][0]'") || {
+        warn "Failed to fetch filtered release from $OWNER/$REPO"
+        output "updated" "false"
+        exit 2
+      }
+    else
+      API_URL="https://api.github.com/repos/$OWNER/$REPO/releases/latest"
+      LATEST_TAG=$(fetch_latest "curl -sfL '$API_URL' | jq -r '.tag_name'") || {
+        warn "Failed to fetch latest release from $OWNER/$REPO"
+        output "updated" "false"
+        exit 2
+      }
+    fi
     LATEST_VERSION="${LATEST_TAG#v}"
     output "upstream_url" "https://github.com/$OWNER/$REPO/releases/tag/$LATEST_TAG"
     ;;

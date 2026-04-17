@@ -3,7 +3,8 @@
   "upstream": {
     "type": "github-release",
     "owner": "mullvad",
-    "repo": "mullvadvpn-app"
+    "repo": "mullvadvpn-app",
+    "tagFilter": "^[0-9]"
   },
   "packageFile": "overlay.nix",
   "hashes": [
