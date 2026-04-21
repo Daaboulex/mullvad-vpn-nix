@@ -25,7 +25,7 @@
       pkgsFor =
         system:
         import nixpkgs {
-          inherit system;
+          localSystem.system = system;
           overlays = [ self.overlays.default ];
         };
     in
