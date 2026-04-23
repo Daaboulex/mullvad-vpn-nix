@@ -92,13 +92,15 @@ in
 
     # GUI settings JSON — daemon ignores it; pure GUI-side.
     xdg.configFile."Mullvad VPN/gui_settings.json".text = builtins.toJSON {
-      preferredLocale = cfg.settings.preferredLocale;
-      autoConnect = cfg.settings.autoConnect;
-      enableSystemNotifications = cfg.settings.enableSystemNotifications;
-      monochromaticIcon = cfg.settings.monochromaticIcon;
-      startMinimized = cfg.settings.startMinimized;
-      unpinnedWindow = cfg.settings.unpinnedWindow;
-      animateMap = cfg.settings.animateMap;
+      inherit (cfg.settings)
+        preferredLocale
+        autoConnect
+        enableSystemNotifications
+        monochromaticIcon
+        startMinimized
+        unpinnedWindow
+        animateMap
+        ;
       browsedForSplitTunnelingApplications = [ ];
       changelogDisplayedForVersion = "";
       updateDismissedForVersion = "";

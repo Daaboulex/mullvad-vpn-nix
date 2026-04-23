@@ -1,4 +1,5 @@
-# nixos-module.nix — Mullvad VPN daemon + declarative settings via jq-patch.
+# nixos-module.nix — Mullvad VPN daemon + declarative settings via
+# `mullvad <subcmd> set` calls.
 {
   config,
   lib,
@@ -9,33 +10,51 @@ let
   cfg = config.services.mullvad-vpn-declarative;
   s = cfg.settings;
 
-  # mullvad-cli 2025.14 has a schema-compat bug where `get`/`set` crash with
-  # "missing bridge settings" on settings_version=15. Daemon handles it fine
-  # — only CLI is broken. Workaround: patch /etc/mullvad-vpn/settings.json
-  # directly with jq, daemon stopped/started around the patch. Schema-gated
-  # to settings_version=15; if Mullvad bumps the schema we skip rather than
-  # clobber.
-  b = v: if v then "true" else "false";
-  q = v: "\"${v}\"";
-  # Mullvad uses sentinel string "any" for unset constraints. Translate
-  # null → "any", string → "{ only: <string> }", list → "{ only: [...] }".
-  filterAny =
-    v:
-    if v == null then
-      "\"any\""
-    else if builtins.isList v then
-      "{\"only\": ${builtins.toJSON v}}"
+  onOff = v: if v then "on" else "off";
+  allowBlock = v: if v then "allow" else "block";
+  portArg = v: if v == null then "any" else toString v;
+
+  # Translate declarative settings to a sequence of `mullvad <subcmd>
+  # set` invocations. The daemon validates each call and idempotent
+  # writes are no-ops — safe to re-run on every rebuild.
+  #
+  # Options without a direct CLI setter (see module-level comments) are
+  # intentionally skipped here; the applyScript comment block below
+  # spells out which ones.
+  dnsBlockFlags = lib.concatStringsSep " " (
+    lib.optional s.dns.blockAds "--block-ads"
+    ++ lib.optional s.dns.blockTrackers "--block-trackers"
+    ++ lib.optional s.dns.blockMalware "--block-malware"
+    ++ lib.optional s.dns.blockAdultContent "--block-adult-content"
+    ++ lib.optional s.dns.blockGambling "--block-gambling"
+    ++ lib.optional s.dns.blockSocialMedia "--block-social-media"
+  );
+
+  dnsCmd =
+    if s.dns.mode == "default" then
+      "mullvad dns set default ${dnsBlockFlags}"
     else
-      "{\"only\": ${builtins.toJSON v}}";
-  # Port: null → "any" sentinel string, int → { only: { port: int } } shape.
-  portAny = v: if v == null then "\"any\"" else "{\"only\": ${toString v}}";
+      # Custom DNS requires at least one address; if user leaves the list
+      # empty we fall through to default to avoid a CLI error.
+      (
+        if s.dns.customServers == [ ] then
+          "mullvad dns set default ${dnsBlockFlags}"
+        else
+          "mullvad dns set custom ${lib.concatMapStringsSep " " lib.escapeShellArg s.dns.customServers}"
+      );
+
+  providerCmd =
+    if s.relay.providers == null then
+      "mullvad relay set provider any"
+    else
+      "mullvad relay set provider ${lib.concatMapStringsSep " " lib.escapeShellArg s.relay.providers}";
 
   applyScript = pkgs.writeShellApplication {
     name = "mullvad-apply-settings";
-    runtimeInputs = with pkgs; [
-      jq
-      systemd
-      coreutils
+    runtimeInputs = [
+      cfg.package
+      pkgs.systemd
+      pkgs.coreutils
     ];
     text = ''
       set -eu
@@ -43,14 +62,18 @@ let
       BACKUP=/etc/mullvad-vpn/settings.json.nixos-bak
 
       log() { echo "[mullvad-apply] $*"; }
+      # Each set is idempotent, but we don't want a single bad call to
+      # abort the batch — log and continue so operators can see the
+      # specific failure without losing every later setting.
+      run() {
+        if ! "$@"; then
+          log "WARN: failed: $*"
+        fi
+      }
 
-      # Wait up to 30s for the daemon to create settings.json on first boot.
-      # Without this, on a fresh install the file doesn't exist when this
-      # unit runs (we ordered after mullvad-daemon.service start, but the
-      # daemon writes settings.json LAZILY a few seconds after start). The
-      # old early-exit + RemainAfterExit combo silently skipped the patch
-      # for the entire boot session, leaving user-declared settings unapplied
-      # until the next reboot — a privacy regression for lockdownMode users.
+      # Wait up to 30s for the daemon to create settings.json on first
+      # boot. Without this, on a fresh install the file doesn't exist
+      # when this unit runs.
       for _ in $(seq 1 30); do
         [ -f "$SETTINGS" ] && break
         sleep 1
@@ -59,76 +82,52 @@ let
         log "settings.json never appeared after 30s — daemon failed to start; aborting"
         exit 1
       fi
-      VER=$(jq -r '.settings_version // empty' "$SETTINGS")
-      if [ "$VER" != "15" ]; then
-        log "settings_version=$VER (expected 15) — aborting to avoid clobber"
-        exit 0
-      fi
 
-      log "stopping mullvad-daemon"
-      systemctl stop mullvad-daemon.service
-      # Trap restarts the daemon on any exit path. We do NOT swallow start
-      # failures — if the daemon refuses to come back, the unit must fail
-      # so the operator sees it (vs systemd marking us "active (exited)"
-      # while the daemon stays dead with stale settings).
-      trap 'systemctl start mullvad-daemon.service' EXIT
+      # Snapshot live settings so operators can diff / restore by hand.
       cp -a "$SETTINGS" "$BACKUP"
 
-      log "patching settings.json (settings_version=15)"
-      jq '
-          .auto_connect                                            = ${b s.autoConnect}
-        | .lockdown_mode                                           = ${b s.lockdownMode}
-        | .allow_lan                                               = ${b s.lan}
-        | .show_beta_releases                                      = ${b s.betaProgram}
-        | .update_default_location                                 = ${b s.updateDefaultLocation}
-        | .tunnel_options.wireguard.quantum_resistant              = ${q s.tunnel.quantumResistant}
-        | .tunnel_options.wireguard.daita.enabled                  = ${b s.tunnel.daita.enable}
-        | .tunnel_options.wireguard.daita.use_multihop_if_necessary = ${b s.tunnel.daita.useMultihopIfNecessary}
-        | .tunnel_options.wireguard.mtu                            = ${
-          if s.tunnel.mtu == null then "null" else toString s.tunnel.mtu
-        }
-        | .tunnel_options.wireguard.rotation_interval              = ${
-          if s.tunnel.rotationIntervalHours == null then "null" else toString s.tunnel.rotationIntervalHours
-        }
-        | .tunnel_options.generic.enable_ipv6                      = ${b s.tunnel.ipv6}
-        | .tunnel_options.dns_options.state                        = ${q s.dns.mode}
-        | .tunnel_options.dns_options.default_options.block_ads           = ${b s.dns.blockAds}
-        | .tunnel_options.dns_options.default_options.block_trackers      = ${b s.dns.blockTrackers}
-        | .tunnel_options.dns_options.default_options.block_malware       = ${b s.dns.blockMalware}
-        | .tunnel_options.dns_options.default_options.block_adult_content = ${b s.dns.blockAdultContent}
-        | .tunnel_options.dns_options.default_options.block_gambling      = ${b s.dns.blockGambling}
-        | .tunnel_options.dns_options.default_options.block_social_media  = ${b s.dns.blockSocialMedia}
-        | .tunnel_options.dns_options.custom_options.addresses     = ${builtins.toJSON s.dns.customServers}
-        | .obfuscation_settings.selected_obfuscation               = ${q s.obfuscation.mode}
-        | .obfuscation_settings.udp2tcp.port                       = ${portAny s.obfuscation.udp2tcpPort}
-        | .obfuscation_settings.shadowsocks.port                   = ${portAny s.obfuscation.shadowsocksPort}
-        | .obfuscation_settings.wireguard_port.port                = ${portAny s.obfuscation.wireguardPort}
-        | .api_access_methods.direct.enabled                       = ${b s.apiAccess.direct}
-        | .api_access_methods.mullvad_bridges.enabled              = ${b s.apiAccess.mullvadBridges}
-        | .api_access_methods.encrypted_dns_proxy.enabled          = ${b s.apiAccess.encryptedDnsProxy}
-        | .relay_settings.normal.wireguard_constraints.use_multihop = ${b s.multihop.enable}
-        | .relay_settings.normal.wireguard_constraints.ip_version   = ${q s.relay.ipVersion}
-        | .relay_settings.normal.providers                          = ${filterAny s.relay.providers}
-        | .relay_settings.normal.ownership                          = ${q s.relay.ownership}
-        | .relay_settings.normal.wireguard_constraints.entry_providers = ${filterAny s.relay.entryProviders}
-        | .relay_settings.normal.wireguard_constraints.entry_ownership = ${q s.relay.entryOwnership}
-      ' "$BACKUP" > "$SETTINGS".tmp
+      log "applying settings via mullvad CLI"
 
-      jq -e . "$SETTINGS".tmp >/dev/null || {
-        log "ERROR: jq output invalid — rolling back"
-        rm -f "$SETTINGS".tmp
-        cp -a "$BACKUP" "$SETTINGS"
-        exit 1
-      }
-      mv "$SETTINGS".tmp "$SETTINGS"
-      # 600: file may contain account tokens after first login. World-readable
-      # (644) was an oversight from earlier iterations.
-      chmod 600 "$SETTINGS"
-      chown root:root "$SETTINGS"
+      # Top-level toggles
+      run mullvad auto-connect set ${onOff s.autoConnect}
+      run mullvad lockdown-mode set ${onOff s.lockdownMode}
+      run mullvad lan set ${allowBlock s.lan}
+      run mullvad beta-program set ${onOff s.betaProgram}
 
-      log "starting mullvad-daemon"
-      systemctl start mullvad-daemon.service
-      trap - EXIT
+      # DNS
+      run ${dnsCmd}
+
+      # Anti-censorship (formerly "obfuscation" in settings.json)
+      run mullvad anti-censorship set mode ${s.obfuscation.mode}
+      run mullvad anti-censorship set udp2tcp --port ${portArg s.obfuscation.udp2tcpPort}
+      run mullvad anti-censorship set shadowsocks --port ${portArg s.obfuscation.shadowsocksPort}
+      run mullvad anti-censorship set wireguard-port --port ${portArg s.obfuscation.wireguardPort}
+
+      # Relay constraints
+      run mullvad relay set multihop ${onOff s.multihop.enable}
+      run mullvad relay set ip-version ${s.relay.ipVersion}
+      run mullvad relay set ownership ${s.relay.ownership}
+      run ${providerCmd}
+
+      # Tunnel
+      run mullvad tunnel set quantum-resistant ${s.tunnel.quantumResistant}
+      run mullvad tunnel set ipv6 ${onOff s.tunnel.ipv6}
+      run mullvad tunnel set daita ${onOff s.tunnel.daita.enable}
+      # daita-direct-only=on is the inverse of useMultihopIfNecessary=true
+      run mullvad tunnel set daita-direct-only ${onOff (!s.tunnel.daita.useMultihopIfNecessary)}
+      ${lib.optionalString (s.tunnel.mtu != null) ''
+        run mullvad tunnel set mtu ${toString s.tunnel.mtu}
+      ''}
+      ${lib.optionalString (s.tunnel.rotationIntervalHours != null) ''
+        run mullvad tunnel set rotation-interval ${toString s.tunnel.rotationIntervalHours}
+      ''}
+
+      # API access methods (built-in indices: 1=Direct, 2=Mullvad Bridges,
+      # 3=Encrypted DNS Proxy). `enable` / `disable` are idempotent.
+      run mullvad api-access ${if s.apiAccess.direct then "enable" else "disable"} 1
+      run mullvad api-access ${if s.apiAccess.mullvadBridges then "enable" else "disable"} 2
+      run mullvad api-access ${if s.apiAccess.encryptedDnsProxy then "enable" else "disable"} 3
+
       log "done"
     '';
   };
@@ -146,10 +145,18 @@ in
 
     settings = lib.mkOption {
       description = ''
-        Declarative Mullvad daemon settings. Applied via jq-patch of
-        /etc/mullvad-vpn/settings.json (mullvad-cli 2025.14 has a schema bug
-        on settings_version=15). Schema-gated: if Mullvad bumps the schema
-        this module skips rather than clobbering.
+        Declarative Mullvad daemon settings. Applied on activation via
+        individual `mullvad <subcmd> set` calls (CLI 2026.1+). The
+        daemon validates each call, so invalid values error visibly
+        instead of silently corrupting /etc/mullvad-vpn/settings.json.
+
+        **Options without a CLI setter in 2026.1** (left at daemon
+        default until upstream exposes them):
+
+        - `updateDefaultLocation` — no CLI command
+        - `relay.entryProviders` — `mullvad relay set entry` supports
+          `location` and `custom-list` only
+        - `relay.entryOwnership` — same limitation as entryProviders
       '';
       default = { };
       type = lib.types.submodule {
@@ -181,6 +188,10 @@ in
               Auto-update the daemon's stored "default location" pin as you
               connect to different relays. False keeps a stable preferred
               location across reconnects.
+
+              NOTE: no CLI setter exists in mullvad-cli 2026.1 — this
+              option is parsed but not applied. Remove once upstream
+              exposes a setter.
             '';
           };
 
@@ -224,6 +235,11 @@ in
                 customServers = lib.mkOption {
                   type = lib.types.listOf lib.types.str;
                   default = [ ];
+                  description = ''
+                    Custom DNS servers (only applied when `mode = "custom"`).
+                    Empty list + `mode = "custom"` falls back to default
+                    DNS to avoid a CLI error.
+                  '';
                 };
               };
             };
@@ -239,9 +255,16 @@ in
                     "off"
                     "udp2tcp"
                     "shadowsocks"
+                    "wireguard-port"
+                    "quic"
+                    "lwo"
                   ];
                   default = "auto";
-                  description = "WireGuard obfuscation. Replaces legacy OpenVPN bridges.";
+                  description = ''
+                    WireGuard anti-censorship mode. 2026.1 renamed this
+                    from "obfuscation" to "anti-censorship" in the CLI;
+                    the settings.json field stays `obfuscation_settings`.
+                  '';
                 };
                 udp2tcpPort = lib.mkOption {
                   type = lib.types.nullOr lib.types.port;
@@ -316,7 +339,12 @@ in
                 entryProviders = lib.mkOption {
                   type = lib.types.nullOr (lib.types.listOf lib.types.str);
                   default = null;
-                  description = "Provider filter for the multihop entry relay. null = any.";
+                  description = ''
+                    Provider filter for the multihop entry relay. null = any.
+
+                    NOTE: no CLI setter in mullvad-cli 2026.1 — parsed
+                    but not applied (see top-level comment).
+                  '';
                 };
                 entryOwnership = lib.mkOption {
                   type = lib.types.enum [
@@ -325,7 +353,12 @@ in
                     "owned"
                   ];
                   default = "any";
-                  description = "Ownership filter for the multihop entry relay.";
+                  description = ''
+                    Ownership filter for the multihop entry relay.
+
+                    NOTE: no CLI setter in mullvad-cli 2026.1 — parsed
+                    but not applied (see top-level comment).
+                  '';
                 };
               };
             };
@@ -338,17 +371,17 @@ in
                 direct = lib.mkOption {
                   type = lib.types.bool;
                   default = true;
-                  description = "Direct API access.";
+                  description = "Direct API access (built-in method index 1).";
                 };
                 mullvadBridges = lib.mkOption {
                   type = lib.types.bool;
                   default = true;
-                  description = "API via bridge relay (when direct blocked).";
+                  description = "API via bridge relay (built-in method index 2).";
                 };
                 encryptedDnsProxy = lib.mkOption {
                   type = lib.types.bool;
                   default = true;
-                  description = "API via DoH (when direct blocked).";
+                  description = "API via DoH (built-in method index 3).";
                 };
               };
             };
@@ -397,7 +430,12 @@ in
                       useMultihopIfNecessary = lib.mkOption {
                         type = lib.types.bool;
                         default = true;
-                        description = "Auto-enable multihop when chosen exit doesn't support DAITA.";
+                        description = ''
+                          Auto-enable multihop when chosen exit doesn't
+                          support DAITA. Inverse of Mullvad's
+                          `daita-direct-only` CLI flag: `true` here sets
+                          daita-direct-only=off.
+                        '';
                       };
                     };
                   };
@@ -413,7 +451,7 @@ in
   config = lib.mkIf cfg.enable {
     services.mullvad-vpn = {
       enable = true;
-      package = cfg.package;
+      inherit (cfg) package;
     };
 
     # Pre-load the wireguard kernel module. Vanilla NixOS `services.mullvad-vpn`
@@ -442,7 +480,7 @@ in
     };
 
     systemd.services.mullvad-apply-settings = {
-      description = "Apply declarative Mullvad VPN settings (settings.json patch)";
+      description = "Apply declarative Mullvad VPN settings";
       # `wants =` (not bare `after =`) ensures mullvad-daemon is actually
       # pulled in. `restartTriggers` re-fires this unit when applyScript
       # changes (i.e., when user edits declarative settings) — without it,

@@ -30,10 +30,16 @@
         };
     in
     {
-      packages = forAllSystems (system: {
-        default = (pkgsFor system).mullvad-vpn;
-        mullvad-vpn = (pkgsFor system).mullvad-vpn;
-      });
+      packages = forAllSystems (
+        system:
+        let
+          p = pkgsFor system;
+        in
+        {
+          default = p.mullvad-vpn;
+          inherit (p) mullvad-vpn;
+        }
+      );
 
       overlays.default = import ./overlay.nix;
 
