@@ -9,6 +9,16 @@
 
 [Mullvad VPN](https://mullvad.net/) packaged for NixOS — declarative daemon settings, Home Manager GUI prefs, upstream version pin.
 
+## Upstream
+
+This is a **Nix packaging wrapper** — not the original project. All credit for Mullvad VPN goes to:
+
+- **Author**: [Mullvad VPN AB](https://mullvad.net/)
+- **Repository**: [github.com/mullvad/mullvadvpn-app](https://github.com/mullvad/mullvadvpn-app)
+- **License**: [GPL-3.0](https://github.com/mullvad/mullvadvpn-app/blob/main/LICENSE.md)
+
+Tracks GitHub releases. Daily upstream check at 07:00 UTC.
+
 Three things in one repo, instead of split between system and Home Manager:
 
 1. **Overlay** — pins `mullvad-vpn` to upstream **2026.1** (nixpkgs is on 2025.14, which has a broken CLI on `settings_version=15`)
