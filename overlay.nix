@@ -9,10 +9,10 @@
 # version + hash. When nixpkgs catches up, this overlay can be dropped.
 _final: prev: {
   mullvad-vpn = prev.mullvad-vpn.overrideAttrs (_old: rec {
-    version = "2026.1";
+    version = "2026.2";
     src = prev.fetchurl {
       url = "https://github.com/mullvad/mullvadvpn-app/releases/download/${version}/MullvadVPN-${version}_amd64.deb";
-      hash = "sha256-HleajbEbw5Z1ab/E4zSR+GxDOIuvegP4N9yRFZYv7z4=";
+      hash = "sha256-ewJ/XxqwVLF3/MsiN+AZ+jQodMr+JmPtpbcdXe6HNPo=";
     };
 
     # Override versionCheckHook target: use CLI not GUI.
