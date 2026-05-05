@@ -32,53 +32,30 @@ Add as a flake input:
 
 ```nix
 {
-  inputs.mullvad-vpn-nix.url = "github:Daaboulex/mullvad-vpn-nix";
-}
-```
-
-### Use the overlay (gets 2026.1 instead of nixpkgs' 2025.14)
-
-```nix
-{ inputs, ... }: {
-  nixpkgs.overlays = [ inputs.mullvad-vpn-nix.overlays.default ];
-}
-```
-
-### Enable the NixOS daemon module
-
-```nix
-{ inputs, ... }: {
-  imports = [ inputs.mullvad-vpn-nix.nixosModules.default ];
-
-  services.mullvad-vpn-declarative = {
-    enable = true;
-    # Defaults match Mullvad daemon defaults. Override only what you need.
-    # settings = {
-    #   lockdownMode = true;            # kill-switch
-    #   dns.blockAds = true;            # opt-in to additional blockers
-    #   dns.blockMalware = true;
-    #   tunnel.daita.enable = true;     # traffic-analysis defense
-    #   relay.ownership = "owned";      # Mullvad-owned only
-    # };
+  inputs.mullvad-vpn = {
+    url = "github:Daaboulex/mullvad-vpn-nix";
+    inputs.nixpkgs.follows = "nixpkgs";
   };
 }
 ```
 
-### Enable the Home Manager GUI module
+Then add the overlay:
 
 ```nix
-{ inputs, ... }: {
-  imports = [ inputs.mullvad-vpn-nix.homeManagerModules.default ];
-
-  programs.mullvad-vpn-gui = {
-    enable = true;
-    # All GUI settings have sensible defaults. Override only what you need.
-    # autostart = true;
-    # settings.startMinimized = false;
-  };
-}
+nixpkgs.overlays = [ inputs.mullvad-vpn.overlays.default ];
 ```
 
+Import the NixOS module:
+
+```nix
+imports = [ inputs.mullvad-vpn.nixosModules.default ];
+```
+
+Import the Home Manager module:
+
+```nix
+home-manager.sharedModules = [ inputs.mullvad-vpn.homeManagerModules.default ];
+```
 <!-- END generated:installation -->
 
 ## Setting reference
