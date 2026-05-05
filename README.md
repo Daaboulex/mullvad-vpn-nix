@@ -171,6 +171,11 @@ nix fmt
 Idempotent — re-runs on every `nixos-rebuild switch` so GUI/CLI drift gets reverted.
 
 <!-- BEGIN generated:options -->
+## Options
+
+NixOS module: `services.mullvad-vpn-declarative.*` (see [`nixos-module.nix`](nixos-module.nix))
+
+Home Manager module: `programs.mullvad-vpn.*` (see [`hm-module.nix`](hm-module.nix))
 <!-- END generated:options -->
 
 ## License
