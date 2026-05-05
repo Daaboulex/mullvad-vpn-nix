@@ -62,24 +62,37 @@ let
       BACKUP=/etc/mullvad-vpn/settings.json.nixos-bak
 
       log() { echo "[mullvad-apply] $*"; }
-      # Each set is idempotent, but we don't want a single bad call to
-      # abort the batch — log and continue so operators can see the
-      # specific failure without losing every later setting.
+      CRITICAL_FAILURES=0
+      # Non-critical: log and continue (relay preferences, DNS block flags).
       run() {
         if ! "$@"; then
           log "WARN: failed: $*"
         fi
       }
+      # Critical: track failures — exit non-zero if any critical setting
+      # (kill switch, auto-connect) failed to apply.
+      run_critical() {
+        if ! "$@"; then
+          log "CRITICAL: failed: $*"
+          CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))
+        fi
+      }
 
-      # Wait up to 30s for the daemon to create settings.json on first
-      # boot. Without this, on a fresh install the file doesn't exist
-      # when this unit runs.
+      # Wait up to 30s for daemon IPC to accept commands (not just
+      # settings.json existence — the file appears before IPC is ready).
       for _ in $(seq 1 30); do
-        [ -f "$SETTINGS" ] && break
+        if mullvad status 2>/dev/null | grep -q .; then
+          break
+        fi
         sleep 1
       done
+      if ! mullvad status 2>/dev/null | grep -q .; then
+        log "daemon not accepting IPC after 30s — aborting"
+        exit 1
+      fi
+
       if [ ! -f "$SETTINGS" ]; then
-        log "settings.json never appeared after 30s — daemon failed to start; aborting"
+        log "settings.json missing after daemon IPC ready — unexpected state"
         exit 1
       fi
 
@@ -88,9 +101,10 @@ let
 
       log "applying settings via mullvad CLI"
 
-      # Top-level toggles
-      run mullvad auto-connect set ${onOff s.autoConnect}
-      run mullvad lockdown-mode set ${onOff s.lockdownMode}
+      # Top-level toggles — critical settings use run_critical so a
+      # failure to apply the kill switch or auto-connect exits non-zero.
+      run_critical mullvad auto-connect set ${onOff s.autoConnect}
+      run_critical mullvad lockdown-mode set ${onOff s.lockdownMode}
       run mullvad lan set ${allowBlock s.lan}
       run mullvad beta-program set ${onOff s.betaProgram}
 
@@ -128,6 +142,10 @@ let
       run mullvad api-access ${if s.apiAccess.mullvadBridges then "enable" else "disable"} 2
       run mullvad api-access ${if s.apiAccess.encryptedDnsProxy then "enable" else "disable"} 3
 
+      if [ "$CRITICAL_FAILURES" -gt 0 ]; then
+        log "FATAL: $CRITICAL_FAILURES critical setting(s) failed to apply — exiting non-zero"
+        exit 1
+      fi
       log "done"
     '';
   };
