@@ -1,29 +1,21 @@
 # mullvad-vpn-nix
 
-[![CI](https://github.com/Daaboulex/mullvad-vpn-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/mullvad-vpn-nix/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/Daaboulex/mullvad-vpn-nix)](./LICENSE)
-[![NixOS](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
-[![Last commit](https://img.shields.io/github/last-commit/Daaboulex/mullvad-vpn-nix)](https://github.com/Daaboulex/mullvad-vpn-nix/commits)
-[![Stars](https://img.shields.io/github/stars/Daaboulex/mullvad-vpn-nix?style=flat)](https://github.com/Daaboulex/mullvad-vpn-nix/stargazers)
-[![Issues](https://img.shields.io/github/issues/Daaboulex/mullvad-vpn-nix)](https://github.com/Daaboulex/mullvad-vpn-nix/issues)
+<!-- BEGIN generated:badges -->
+[![NixOS unstable](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+<!-- END generated:badges -->
 
 [Mullvad VPN](https://mullvad.net/) packaged for NixOS — declarative daemon settings, Home Manager GUI prefs, upstream version pin.
 
+<!-- BEGIN generated:upstream -->
 ## Upstream
 
-This is a **Nix packaging wrapper** — not the original project. All credit for Mullvad VPN goes to:
-
-- **Author**: [Mullvad VPN AB](https://mullvad.net/)
-- **Repository**: [github.com/mullvad/mullvadvpn-app](https://github.com/mullvad/mullvadvpn-app)
-- **License**: [GPL-3.0](https://github.com/mullvad/mullvadvpn-app/blob/main/LICENSE.md)
-
-Tracks GitHub releases. Daily upstream check at 07:00 UTC.
-
-Three things in one repo, instead of split between system and Home Manager:
-
-1. **Overlay** — pins `mullvad-vpn` to upstream **2026.1** (nixpkgs is on 2025.14, which has a broken CLI on `settings_version=15`)
-2. **NixOS module** — declarative daemon settings (lockdown, DNS blockers, multihop, DAITA, obfuscation, API access, quantum-resistant) applied via jq-patch, schema-gated
-3. **Home Manager module** — installs the GUI + writes `~/.config/Mullvad VPN/gui_settings.json` declaratively + optional autostart
+| | |
+|---|---|
+| **Project** | [mullvad/mullvadvpn-app](https://github.com/mullvad/mullvadvpn-app) |
+| **License** | GPL-3.0 |
+| **Tracked** | GitHub releases |
+<!-- END generated:upstream -->
 
 ## Why this exists
 
@@ -33,6 +25,7 @@ This module fixes that by patching `settings.json` declaratively from your NixOS
 
 The CLI in 2025.14 was broken (`mullvad <cmd> get|set` crashed with `missing bridge settings`), so the overlay also bumps to 2026.1 where the CLI works again.
 
+<!-- BEGIN generated:installation -->
 ## Installation
 
 Add as a flake input:
@@ -85,6 +78,8 @@ Add as a flake input:
   };
 }
 ```
+
+<!-- END generated:installation -->
 
 ## Setting reference
 
@@ -154,6 +149,15 @@ nix fmt
 
 Idempotent — re-runs on every `nixos-rebuild switch` so GUI/CLI drift gets reverted.
 
+<!-- BEGIN generated:options -->
+<!-- END generated:options -->
+
 ## License
 
 MIT for the packaging code in this repo. Mullvad VPN itself is **GPL-3.0** — see [the upstream repo](https://github.com/mullvad/mullvadvpn-app) for the application source and license. This repo wraps the prebuilt .deb that Mullvad publishes; it does not include or modify the Mullvad source code.
+
+<!-- BEGIN generated:footer -->
+---
+
+*Maintained as part of the [Daaboulex](https://github.com/Daaboulex) NixOS ecosystem.*
+<!-- END generated:footer -->
