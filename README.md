@@ -105,6 +105,50 @@ home-manager.sharedModules = [ inputs.mullvad-vpn.homeManagerModules.default ];
 - **Account login** — sensitive, `mullvad account login` stays manual per device
 - **Encrypted DNS Proxy (browser)** — Mullvad Browser feature, separate from the VPN daemon
 
+## Usage
+
+Enable the declarative NixOS module:
+
+```nix
+{
+  services.mullvad-vpn-declarative = {
+    enable = true;
+    settings = {
+      autoConnect = true;
+      killSwitch = true;
+      daita = true;
+      dns = {
+        mode = "default";
+        blockAds = true;
+        blockTrackers = true;
+      };
+      relay = {
+        country = "se";
+        tunnel.wireguard.port = 51820;
+      };
+    };
+  };
+}
+```
+
+### Home Manager module (GUI preferences)
+
+```nix
+{
+  programs.mullvad-vpn = {
+    enable = true;
+  };
+}
+```
+
+### CLI
+
+```bash
+mullvad status                   # connection status
+mullvad relay set location se    # switch to Sweden
+mullvad connect                  # connect
+mullvad disconnect               # disconnect
+```
 ## Development
 
 ```bash
