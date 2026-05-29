@@ -1,0 +1,5 @@
+# typos allowlist — Mullvad vocabulary, not misspellings.
+# DAITA = Defense Against AI-guided Traffic Analysis (a Mullvad feature).
+[default.extend-words]
+daita = "daita"
+DAITA = "DAITA"

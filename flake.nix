@@ -3,88 +3,64 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
     git-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    std = {
+      url = "github:Daaboulex/nix-packaging-standard?ref=v2.2.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.git-hooks.follows = "git-hooks";
+    };
   };
 
   outputs =
-    {
+    inputs@{
+      flake-parts,
       self,
-      nixpkgs,
-      git-hooks,
       ...
     }:
-    let
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-      ];
-      forAllSystems = nixpkgs.lib.genAttrs systems;
-      pkgsFor =
-        system:
-        import nixpkgs {
-          localSystem.system = system;
-          overlays = [ self.overlays.default ];
-        };
-    in
-    {
-      packages = forAllSystems (
-        system:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      # amd64-only upstream .deb; aarch64 dropped (declared == built).
+      systems = [ "x86_64-linux" ];
+
+      imports = [ inputs.std.flakeModules.base ];
+
+      flake.overlays.default = import ./overlay.nix;
+      flake.nixosModules.default = import ./nixos-module.nix;
+      flake.homeManagerModules.default = import ./hm-module.nix;
+
+      perSystem =
+        { system, pkgs, ... }:
         let
-          p = pkgsFor system;
+          pkgs' = pkgs.extend self.overlays.default;
         in
         {
-          default = p.mullvad-vpn;
-          inherit (p) mullvad-vpn;
-        }
-      );
+          packages.mullvad-vpn = pkgs'.mullvad-vpn;
+          packages.default = pkgs'.mullvad-vpn;
 
-      overlays.default = import ./overlay.nix;
-
-      nixosModules.default = import ./nixos-module.nix;
-      homeManagerModules.default = import ./hm-module.nix;
-
-      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
-
-      checks = forAllSystems (system: {
-        pre-commit = git-hooks.lib.${system}.run {
-          src = ./.;
-          hooks = {
-            nixfmt-rfc-style.enable = true;
-            deadnix.enable = true;
-            statix.enable = true;
-            shellcheck.enable = true;
-            typos.enable = true;
-            rumdl.enable = true;
-            check-readme-sections = {
-              enable = true;
-              name = "check-readme-sections";
-              entry = "bash scripts/check-readme-sections.sh";
-              files = "README\\.md$";
-              language = "system";
+          # Instantiate both modules (enabled) so activation errors surface.
+          checks.module-eval-nixos = inputs.std.lib.nixosModuleCheck {
+            inherit (inputs) nixpkgs;
+            inherit system;
+            module = ./nixos-module.nix;
+            config = {
+              nixpkgs.overlays = [ self.overlays.default ];
+              services.mullvad-vpn-declarative.enable = true;
             };
           };
-        };
-        build = self.packages.${system}.default;
-      });
 
-      devShells = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-        in
-        {
-          default = pkgs.mkShellNoCC {
-            inherit (self.checks.${system}.pre-commit) shellHook;
-            packages = with pkgs; [
-              nil
-              nixfmt-rfc-style
-              jq
-            ];
+          checks.module-eval-hm = inputs.std.lib.homeModuleCheck {
+            inherit (inputs) nixpkgs home-manager;
+            inherit system;
+            module = ./hm-module.nix;
+            config.programs.mullvad-vpn-gui.enable = true;
           };
-        }
-      );
+        };
     };
 }

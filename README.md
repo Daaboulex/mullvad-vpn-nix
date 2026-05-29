@@ -16,6 +16,7 @@
 | **Project** | [mullvad/mullvadvpn-app](https://github.com/mullvad/mullvadvpn-app) |
 | **License** | GPL-3.0 |
 | **Tracked** | GitHub releases |
+
 <!-- END generated:upstream -->
 
 ## Why this exists
@@ -24,7 +25,7 @@ Vanilla nixpkgs gives you `services.mullvad-vpn.enable = true;` and that's it. E
 
 This module fixes that by patching `settings.json` declaratively from your NixOS config, so a single host config replicates across all your machines.
 
-The CLI in 2025.14 was broken (`mullvad <cmd> get|set` crashed with `missing bridge settings`), so the overlay also bumps to 2026.1 where the CLI works again.
+The CLI in 2025.14 was broken (`mullvad <cmd> get|set` crashed with `missing bridge settings`), so the overlay also bumps to 2026.2 where the CLI works again.
 
 <!-- BEGIN generated:installation -->
 ## Installation
@@ -57,6 +58,7 @@ Import the Home Manager module:
 ```nix
 home-manager.sharedModules = [ inputs.mullvad-vpn.homeManagerModules.default ];
 ```
+
 <!-- END generated:installation -->
 
 ## Setting reference
@@ -116,17 +118,14 @@ Enable the declarative NixOS module:
     enable = true;
     settings = {
       autoConnect = true;
-      killSwitch = true;
-      daita = true;
+      lockdownMode = true;
       dns = {
         mode = "default";
         blockAds = true;
         blockTrackers = true;
       };
-      relay = {
-        country = "se";
-        tunnel.wireguard.port = 51820;
-      };
+      obfuscation.wireguardPort = 51820;
+      tunnel.daita.enable = true;
     };
   };
 }
@@ -136,7 +135,7 @@ Enable the declarative NixOS module:
 
 ```nix
 {
-  programs.mullvad-vpn = {
+  programs.mullvad-vpn-gui = {
     enable = true;
   };
 }
@@ -150,6 +149,7 @@ mullvad relay set location se    # switch to Sweden
 mullvad connect                  # connect
 mullvad disconnect               # disconnect
 ```
+
 ## Development
 
 ```bash
@@ -176,7 +176,7 @@ Idempotent — re-runs on every `nixos-rebuild switch` so GUI/CLI drift gets rev
 
 NixOS module: `services.mullvad-vpn-declarative.*` (see [`nixos-module.nix`](nixos-module.nix))
 
-Home Manager module: `programs.mullvad-vpn.*` (see [`hm-module.nix`](hm-module.nix))
+Home Manager module: `programs.mullvad-vpn-gui.*` (see [`hm-module.nix`](hm-module.nix))
 <!-- END generated:options -->
 
 ## License
