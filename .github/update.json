@@ -13,5 +13,18 @@
   "verify": {
     "binary": "mullvad",
     "args": "--version"
-  }
+  },
+  "description": "Mullvad VPN packaged for NixOS - declarative daemon settings, Home Manager GUI prefs, upstream version pin",
+  "topics": [
+    "nix",
+    "nixos",
+    "flake",
+    "nixos-module",
+    "home-manager",
+    "mullvad",
+    "mullvad-vpn",
+    "vpn",
+    "wireguard",
+    "privacy"
+  ]
 }
