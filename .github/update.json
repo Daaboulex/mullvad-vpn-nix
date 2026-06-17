@@ -8,7 +8,7 @@
   },
   "packageFile": "overlay.nix",
   "hashes": [
-    "hash"
+    { "field": "x86_64-linux", "file": "overlay.nix" }
   ],
   "verify": {
     "binary": "mullvad",

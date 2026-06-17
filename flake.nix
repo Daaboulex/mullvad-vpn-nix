@@ -26,8 +26,10 @@
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      # amd64-only upstream .deb; aarch64 dropped (declared == built).
-      systems = [ "x86_64-linux" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
 
       imports = [ inputs.std.flakeModules.base ];
 

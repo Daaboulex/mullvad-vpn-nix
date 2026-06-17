@@ -10,10 +10,25 @@
 _final: prev: {
   mullvad-vpn = prev.mullvad-vpn.overrideAttrs (_old: rec {
     version = "2026.3";
-    src = prev.fetchurl {
-      url = "https://github.com/mullvad/mullvadvpn-app/releases/download/${version}/MullvadVPN-${version}_amd64.deb";
-      hash = "sha256-OMbuc66AhwaIVgkiooUlttDazGLC5BCTiGPXA46TGso=";
-    };
+    # Upstream ships a per-arch .deb. The github-release updater re-hashes the
+    # build arch (x86_64-linux) on a version bump; the aarch64-linux hash is
+    # hand-bumped alongside it.
+    # MINIMIZE-DEBT: the single-asset updater cannot re-hash both .debs. Repay by
+    # dropping this overlay once nixpkgs ships the CLI fix -- nixpkgs already
+    # selects the .deb per arch, so both arches are covered upstream then.
+    src =
+      let
+        debArch = if prev.stdenv.hostPlatform.isAarch64 then "arm64" else "amd64";
+      in
+      prev.fetchurl {
+        url = "https://github.com/mullvad/mullvadvpn-app/releases/download/${version}/MullvadVPN-${version}_${debArch}.deb";
+        hash =
+          {
+            x86_64-linux = "sha256-OMbuc66AhwaIVgkiooUlttDazGLC5BCTiGPXA46TGso=";
+            aarch64-linux = "sha256-pEzb21CSPn/ZflzZGTSJI5Hz3Q+ERFILg8q7V89AN1Q=";
+          }
+          .${prev.stdenv.hostPlatform.system};
+      };
 
     # Override versionCheckHook target: use CLI not GUI.
     #
