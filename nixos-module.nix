@@ -479,6 +479,17 @@ in
       gui.enable = true;
     };
 
+    # nixpkgs' mullvad-vpn ships its svg only under share/mullvad-vpn/resources
+    # while its .desktop asks for Icon=mullvad-vpn — expose the icon until
+    # nixpkgs installs it into share/icons itself.
+    environment.systemPackages = [
+      (pkgs.runCommand "mullvad-vpn-icon" { } ''
+        mkdir -p $out/share/icons/hicolor/scalable/apps
+        ln -s ${config.services.mullvad-vpn.gui.package}/share/mullvad-vpn/resources/icon.svg \
+          $out/share/icons/hicolor/scalable/apps/mullvad-vpn.svg
+      '')
+    ];
+
     # Pre-load the wireguard kernel module. Vanilla NixOS `services.mullvad-vpn`
     # only adds `tun`. Without `wireguard` loaded, mullvad-daemon falls back
     # to wg-userspace (boringtun-style TUN). That fallback has a race: it
