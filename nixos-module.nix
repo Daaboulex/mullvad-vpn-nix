@@ -156,9 +156,14 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.mullvad-vpn;
-      defaultText = lib.literalExpression "pkgs.mullvad-vpn";
-      description = "The mullvad-vpn package. Override via overlay or here directly.";
+      default = pkgs.mullvad;
+      defaultText = lib.literalExpression "pkgs.mullvad";
+      description = ''
+        The Mullvad daemon package, which also carries the `mullvad` CLI the
+        settings-apply script drives. nixpkgs splits the daemon (`pkgs.mullvad`)
+        from the desktop app (`pkgs.mullvad-vpn`); the GUI package is selected
+        by `services.mullvad-vpn.gui.package`.
+      '';
     };
 
     settings = lib.mkOption {
@@ -470,6 +475,8 @@ in
     services.mullvad-vpn = {
       enable = true;
       inherit (cfg) package;
+      # The desktop app no longer ships inside the daemon package; keep it installed.
+      gui.enable = true;
     };
 
     # Pre-load the wireguard kernel module. Vanilla NixOS `services.mullvad-vpn`

@@ -25,7 +25,7 @@ Vanilla nixpkgs gives you `services.mullvad-vpn.enable = true;` and that's it. E
 
 This module fixes that by patching `settings.json` declaratively from your NixOS config, so a single host config replicates across all your machines.
 
-The CLI in 2025.14 was broken (`mullvad <cmd> get|set` crashed with `missing bridge settings`), so the overlay also bumps to 2026.2 where the CLI works again.
+Settings are applied through the `mullvad` CLI, which the daemon validates, so an invalid value errors visibly instead of silently corrupting `settings.json`. The packages come straight from nixpkgs: this repo carries no overlay and pins no version.
 
 <!-- BEGIN generated:installation -->
 ## Installation
@@ -39,12 +39,6 @@ Add as a flake input:
     inputs.nixpkgs.follows = "nixpkgs";
   };
 }
-```
-
-Then add the overlay:
-
-```nix
-nixpkgs.overlays = [ inputs.mullvad-vpn.overlays.default ];
 ```
 
 Import the NixOS module:

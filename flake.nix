@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     std = {
-      url = "github:Daaboulex/nix-packaging-standard?ref=v2.11.0";
+      url = "github:Daaboulex/nix-packaging-standard?ref=v2.17.0";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.git-hooks.follows = "git-hooks";
     };
@@ -22,7 +22,6 @@
   outputs =
     inputs@{
       flake-parts,
-      self,
       ...
     }:
     flake-parts.lib.mkFlake { inherit inputs; } {
@@ -33,18 +32,14 @@
 
       imports = [ inputs.std.flakeModules.base ];
 
-      flake.overlays.default = import ./overlay.nix;
       flake.nixosModules.default = import ./nixos-module.nix;
       flake.homeManagerModules.default = import ./hm-module.nix;
 
       perSystem =
         { system, pkgs, ... }:
-        let
-          pkgs' = pkgs.extend self.overlays.default;
-        in
         {
-          packages.mullvad-vpn = pkgs'.mullvad-vpn;
-          packages.default = pkgs'.mullvad-vpn;
+          packages.mullvad-vpn = pkgs.mullvad-vpn;
+          packages.default = pkgs.mullvad-vpn;
 
           # Instantiate both modules (enabled) so activation errors surface.
           checks.module-eval-nixos = inputs.std.lib.nixosModuleCheck {
@@ -52,7 +47,6 @@
             inherit system;
             module = ./nixos-module.nix;
             config = {
-              nixpkgs.overlays = [ self.overlays.default ];
               services.mullvad-vpn-declarative.enable = true;
             };
           };

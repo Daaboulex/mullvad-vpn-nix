@@ -116,7 +116,7 @@ in
         [Desktop Entry]
         Type=Application
         Name=Mullvad VPN
-        Exec=${cfg.package}/bin/mullvad-gui
+        Exec=${lib.getExe cfg.package}
         Terminal=false
         X-GNOME-Autostart-enabled=true
       '';
