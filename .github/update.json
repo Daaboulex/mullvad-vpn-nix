@@ -1,20 +1,16 @@
 {
   "package": "mullvad-vpn",
   "upstream": {
-    "type": "github-release",
-    "owner": "mullvad",
-    "repo": "mullvadvpn-app",
-    "tagFilter": "^[0-9]"
+    "type": "none"
   },
-  "packageFile": "overlay.nix",
-  "hashes": [
-    { "field": "x86_64-linux", "file": "overlay.nix" }
-  ],
+  "packageFile": null,
+  "hashes": [],
   "verify": {
-    "binary": "mullvad",
-    "args": "--version"
+    "binary": null,
+    "args": null,
+    "check": "eval"
   },
-  "description": "Mullvad VPN packaged for NixOS - declarative daemon settings, Home Manager GUI prefs, upstream version pin",
+  "description": "Mullvad VPN packaged for NixOS - declarative daemon settings, Home Manager GUI prefs, packages from nixpkgs",
   "topics": [
     "nix",
     "nixos",
