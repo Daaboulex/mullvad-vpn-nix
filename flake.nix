@@ -1,5 +1,5 @@
 {
-  description = "Mullvad VPN — declarative daemon, GUI prefs, upstream version pin";
+  description = "Mullvad VPN — declarative daemon and GUI preferences";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

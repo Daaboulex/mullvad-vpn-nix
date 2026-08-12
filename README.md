@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 <!-- END generated:badges -->
 
-[Mullvad VPN](https://mullvad.net/) packaged for NixOS — declarative daemon settings, Home Manager GUI prefs, upstream version pin.
+[Mullvad VPN](https://mullvad.net/) packaged for NixOS — declarative daemon settings and Home Manager GUI preferences.
 
 <!-- BEGIN generated:upstream -->
 ## Upstream
@@ -15,7 +15,7 @@
 |---|---|
 | **Project** | [mullvad/mullvadvpn-app](https://github.com/mullvad/mullvadvpn-app) |
 | **License** | GPL-3.0 |
-| **Tracked** | GitHub releases |
+| **Tracked** | via nixpkgs (no independent pin) |
 
 <!-- END generated:upstream -->
 
@@ -156,12 +156,10 @@ nix fmt
 ## How it works (under the hood)
 
 1. `services.mullvad-vpn.enable = true` starts `mullvad-daemon.service` (vanilla NixOS)
-2. New `mullvad-apply-settings.service` oneshot runs after the daemon
-3. It checks `settings_version=15` (refuses to touch unknown schemas)
-4. Stops the daemon, backs up `settings.json` to `.nixos-bak`
-5. `jq` patches each declared field at its exact JSON path
-6. Validates the result with `jq -e .` (rolls back on parse failure)
-7. Restarts the daemon
+2. A `mullvad-apply-settings.service` oneshot runs after the daemon
+3. It backs up the live `settings.json` to `settings.json.nixos-bak`
+4. It waits for the daemon's IPC to come up, then applies each declared setting through the `mullvad <subcommand> set` CLI (DNS, relay provider, kill switch, auto-connect, ...)
+5. Critical toggles (kill switch, auto-connect) apply through `run_critical`, so the unit fails loudly if they do not take effect
 
 Idempotent — re-runs on every `nixos-rebuild switch` so GUI/CLI drift gets reverted.
 
@@ -175,7 +173,7 @@ Home Manager module: `programs.mullvad-vpn-gui.*` (see [`hm-module.nix`](hm-modu
 
 ## License
 
-MIT for the packaging code in this repo. Mullvad VPN itself is **GPL-3.0** — see [the upstream repo](https://github.com/mullvad/mullvadvpn-app) for the application source and license. This repo wraps the prebuilt .deb that Mullvad publishes; it does not include or modify the Mullvad source code.
+MIT for the packaging code in this repo. Mullvad VPN itself is **GPL-3.0** — see [the upstream repo](https://github.com/mullvad/mullvadvpn-app) for the application source and license. The Mullvad daemon and GUI packages come from nixpkgs; this repo adds only the declarative configuration, with no overlay and no version pin.
 
 <!-- BEGIN generated:footer -->
 <!-- END generated:footer -->
