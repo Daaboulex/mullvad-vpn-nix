@@ -178,7 +178,4 @@ Home Manager module: `programs.mullvad-vpn-gui.*` (see [`hm-module.nix`](hm-modu
 MIT for the packaging code in this repo. Mullvad VPN itself is **GPL-3.0** — see [the upstream repo](https://github.com/mullvad/mullvadvpn-app) for the application source and license. This repo wraps the prebuilt .deb that Mullvad publishes; it does not include or modify the Mullvad source code.
 
 <!-- BEGIN generated:footer -->
----
-
-*Maintained as part of the [Daaboulex](https://github.com/Daaboulex) NixOS ecosystem.*
 <!-- END generated:footer -->
