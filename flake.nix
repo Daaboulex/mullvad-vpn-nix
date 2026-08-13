@@ -33,7 +33,7 @@
       imports = [ inputs.std.flakeModules.base ];
 
       flake.nixosModules.default = import ./nixos-module.nix;
-      flake.homeManagerModules.default = import ./hm-module.nix;
+      flake.homeModules.default = import ./hm-module.nix;
 
       perSystem =
         { system, pkgs, ... }:

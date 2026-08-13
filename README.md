@@ -50,7 +50,7 @@ imports = [ inputs.mullvad-vpn.nixosModules.default ];
 Import the Home Manager module:
 
 ```nix
-home-manager.sharedModules = [ inputs.mullvad-vpn.homeManagerModules.default ];
+home-manager.sharedModules = [ inputs.mullvad-vpn.homeModules.default ];
 ```
 
 <!-- END generated:installation -->
