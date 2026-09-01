@@ -81,12 +81,14 @@ let
       # Wait up to 30s for daemon IPC to accept commands (not just
       # settings.json existence — the file appears before IPC is ready).
       for _ in $(seq 1 30); do
-        if mullvad status 2>/dev/null | grep -q .; then
+        st=$(mullvad status 2>/dev/null || true)
+        if [ -n "$st" ]; then
           break
         fi
         sleep 1
       done
-      if ! mullvad status 2>/dev/null | grep -q .; then
+      st=$(mullvad status 2>/dev/null || true)
+      if [ -z "$st" ]; then
         log "daemon not accepting IPC after 30s — aborting"
         exit 1
       fi

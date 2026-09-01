@@ -107,19 +107,10 @@ in
     };
 
     xdg.configFile."autostart/mullvad-vpn.desktop" = lib.mkIf cfg.autostart {
-      # force: the mullvad-vpn package ships its own .desktop in
-      # $out/share/applications/ which desktop environments or manual user
-      # action can symlink here. Without force, HM activation fails with
-      # "Existing file would be clobbered".
+      # force: the package ships this same .desktop in share/applications, which a
+      # desktop environment or the user may already have symlinked here.
       force = true;
-      text = ''
-        [Desktop Entry]
-        Type=Application
-        Name=Mullvad VPN
-        Exec=${lib.getExe cfg.package}
-        Terminal=false
-        X-GNOME-Autostart-enabled=true
-      '';
+      source = "${cfg.package}/share/applications/mullvad-vpn.desktop";
     };
   };
 }
