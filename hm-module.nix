@@ -1,4 +1,4 @@
-# hm-module.nix — Mullvad VPN GUI install + declarative ~/.config GUI prefs.
+# hm-module.nix — Mullvad VPN GUI install + GUI prefs seeded once into ~/.config.
 {
   config,
   lib,
@@ -90,21 +90,32 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = [ cfg.package ];
 
-    # GUI settings JSON — daemon ignores it; pure GUI-side.
-    xdg.configFile."Mullvad VPN/gui_settings.json".text = builtins.toJSON {
-      inherit (cfg.settings)
-        preferredLocale
-        autoConnect
-        enableSystemNotifications
-        monochromaticIcon
-        startMinimized
-        unpinnedWindow
-        animateMap
-        ;
-      browsedForSplitTunnelingApplications = [ ];
-      changelogDisplayedForVersion = "";
-      updateDismissedForVersion = "";
-    };
+    home.activation.mullvadGuiSettings =
+      let
+        seed = pkgs.writeText "mullvad-gui-settings.json" (
+          builtins.toJSON {
+            inherit (cfg.settings)
+              preferredLocale
+              autoConnect
+              enableSystemNotifications
+              monochromaticIcon
+              startMinimized
+              unpinnedWindow
+              animateMap
+              ;
+            browsedForSplitTunnelingApplications = [ ];
+            changelogDisplayedForVersion = "";
+            updateDismissedForVersion = "";
+          }
+        );
+      in
+      lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+        target=${lib.escapeShellArg "${config.xdg.configHome}/Mullvad VPN/gui_settings.json"}
+        if [ ! -e "$target" ]; then
+          run mkdir -p "$(dirname "$target")"
+          run install -m 644 ${seed} "$target"
+        fi
+      '';
 
     xdg.configFile."autostart/mullvad-vpn.desktop" = lib.mkIf cfg.autostart {
       # force: the package ships this same .desktop in share/applications, which a

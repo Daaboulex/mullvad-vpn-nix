@@ -85,6 +85,8 @@ home-manager.sharedModules = [ inputs.mullvad-vpn.homeModules.default ];
 
 ### GUI (`programs.mullvad-vpn-gui.settings`)
 
+The GUI writes `~/.config/Mullvad VPN/gui_settings.json` itself, so these values seed that file once, when it is absent, and the GUI owns it after that. Delete the file to re-seed it from the module.
+
 | Option | Default | What it does |
 |--------|---------|--------------|
 | `preferredLocale` | `"system"` | GUI language |
@@ -159,7 +161,7 @@ nix fmt
 2. A `mullvad-apply-settings.service` oneshot runs after the daemon
 3. It backs up the live `settings.json` to `settings.json.nixos-bak`
 4. It waits for the daemon's IPC to come up, then applies each declared setting through the `mullvad <subcommand> set` CLI (DNS, relay provider, kill switch, auto-connect, ...)
-5. Critical toggles (kill switch, auto-connect) apply through `run_critical`, so the unit fails loudly if they do not take effect
+5. Every setting is attempted; any that fails is logged with the CLI's own error and the unit exits non-zero after the pass, so `systemctl --failed` shows a setting that did not take effect
 
 Idempotent — re-runs on every `nixos-rebuild switch` so GUI/CLI drift gets reverted.
 
