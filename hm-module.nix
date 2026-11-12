@@ -21,15 +21,15 @@ in
 
     settings = lib.mkOption {
       description = ''
-        User-scope GUI preferences written to
-        `$XDG_CONFIG_HOME/Mullvad VPN/gui_settings.json` on activation.
-        These are GUI-only preferences (window state, tray icon style,
-        notifications) — they do NOT change connection / privacy
-        behavior. Daemon settings live under
+        User-scope GUI preferences, seeded into
+        `$XDG_CONFIG_HOME/Mullvad VPN/gui_settings.json` at activation when
+        that file does not exist yet. These are GUI-only preferences
+        (window state, tray icon style, notifications) — they do NOT change
+        connection / privacy behavior. Daemon settings live under
         `services.mullvad-vpn-declarative.settings`.
 
-        File is overwritten declaratively. To unmanage, set `enable = false`
-        on this option; the file then remains as last-written.
+        An existing file is left alone, so the app's own changes survive.
+        To apply these values again, delete the file and activate.
       '';
       default = { };
       type = lib.types.submodule {

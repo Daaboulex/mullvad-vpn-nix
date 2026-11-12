@@ -30,7 +30,15 @@
         "aarch64-linux"
       ];
 
-      imports = [ inputs.std.flakeModules.base ];
+      imports = [
+        inputs.std.flakeModules.base
+        {
+          perSystem.std.option-reference = {
+            "NixOS module" = ./nixos-module.nix;
+            "Home Manager module" = ./hm-module.nix;
+          };
+        }
+      ];
 
       flake.nixosModules.default = import ./nixos-module.nix;
       flake.homeModules.default = import ./hm-module.nix;

@@ -1,36 +1,25 @@
 # mullvad-vpn-nix
 
-<!-- BEGIN generated:badges -->
-[![CI](https://github.com/Daaboulex/mullvad-vpn-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/mullvad-vpn-nix/actions/workflows/ci.yml)
-[![NixOS unstable](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-<!-- END generated:badges -->
+[Mullvad VPN](https://mullvad.net/) for NixOS, with the daemon's settings
+declared in your configuration instead of set by hand in the app. It is for
+people who run Mullvad on several machines and want one configuration to give
+every one of them the same settings.
 
-[Mullvad VPN](https://mullvad.net/) packaged for NixOS — declarative daemon settings and Home Manager GUI preferences.
+nixpkgs alone gives you `services.mullvad-vpn.enable = true` and nothing more.
+Every other setting, such as the DNS blockers, the kill switch, DAITA and
+multihop, is state the daemon keeps in `/etc/mullvad-vpn/settings.json`. This
+module applies those settings through the `mullvad` command, which the daemon
+validates, so a wrong value fails visibly.
 
-<!-- BEGIN generated:upstream -->
-## Upstream
+It is written against NixOS unstable for `x86_64-linux` and `aarch64-linux`,
+and needs the `mullvad` command of version 2026.1 or later. The packages come
+straight from nixpkgs, with no overlay and no version pin. The repository's
+checks only evaluate the two modules. No check starts the daemon, so none
+proves that a setting takes effect.
 
-| | |
-|---|---|
-| **Project** | [mullvad/mullvadvpn-app](https://github.com/mullvad/mullvadvpn-app) |
-| **License** | GPL-3.0 |
-| **Tracked** | via nixpkgs (no independent pin) |
+## Install
 
-<!-- END generated:upstream -->
-
-## Why this exists
-
-Vanilla nixpkgs gives you `services.mullvad-vpn.enable = true;` and that's it. Every other Mullvad setting (DNS blockers, kill-switch, DAITA, multihop) is **imperative state held inside the daemon** at `/etc/mullvad-vpn/settings.json`. On multi-host setups, you'd configure each host separately via GUI/CLI.
-
-This module fixes that by applying the settings from your NixOS config through the `mullvad` CLI, so a single host config replicates across all your machines.
-
-Settings are applied through the `mullvad` CLI, which the daemon validates, so an invalid value errors visibly instead of silently corrupting `settings.json`. The packages come straight from nixpkgs: this repo carries no overlay and pins no version.
-
-<!-- BEGIN generated:installation -->
-## Installation
-
-Add as a flake input:
+Add the flake:
 
 ```nix
 {
@@ -41,154 +30,111 @@ Add as a flake input:
 }
 ```
 
-Import the NixOS module:
-
-```nix
-imports = [ inputs.mullvad-vpn.nixosModules.default ];
-```
-
-Import the Home Manager module:
-
-```nix
-home-manager.sharedModules = [ inputs.mullvad-vpn.homeModules.default ];
-```
-
-<!-- END generated:installation -->
-
-## Setting reference
-
-### Daemon (`services.mullvad-vpn-declarative.settings`)
-
-| Option | Default | What it does |
-|--------|---------|--------------|
-| `autoConnect` | `true` | Connect on daemon start |
-| `lockdownMode` | `false` | Block all traffic when disconnected (kill-switch) |
-| `lan` | `true` | Allow local-network sharing while connected |
-| `betaProgram` | `false` | Beta update notifications |
-| `updateDefaultLocation` | `false` | Update the stored default location as you connect to different relays. Parsed but not applied: the `mullvad` CLI has no setter |
-| `dns.mode` | `"default"` | `"default"` = Mullvad resolvers (with optional blockers), `"custom"` = your IPs |
-| `dns.blockAds` | `false` | Block ad-serving domains |
-| `dns.blockTrackers` | `true` | Block tracking domains (Mullvad daemon default) |
-| `dns.blockMalware` | `false` | Block known-malware domains |
-| `dns.blockAdultContent` | `false` | Block adult-content domains |
-| `dns.blockGambling` | `false` | Block gambling domains |
-| `dns.blockSocialMedia` | `false` | Block social-media domains |
-| `dns.customServers` | `[ ]` | DNS IPs when mode = `"custom"` |
-| `obfuscation.mode` | `"auto"` | `auto` / `off` / `udp2tcp` / `shadowsocks` / `wireguard-port` / `quic` / `lwo` (replaces deprecated OpenVPN bridges) |
-| `obfuscation.udp2tcpPort` | `null` | UDP2TCP port. `null` = daemon picks |
-| `obfuscation.shadowsocksPort` | `null` | Shadowsocks port. `null` = daemon picks |
-| `obfuscation.wireguardPort` | `null` | WireGuard port. `null` = daemon picks |
-| `multihop.enable` | `true` | Route through entry-then-exit relay |
-| `relay.ipVersion` | `"any"` | Tunnel IP version: `any` / `v4` / `v6` |
-| `relay.providers` | `null` | Restrict relays to these hosting providers. `null` = any provider |
-| `relay.ownership` | `"any"` | Relay ownership filter: `any` / `rented` / `owned` |
-| `relay.entryProviders` | `null` | Provider filter for the multihop entry relay. Parsed but not applied: the `mullvad` CLI has no setter |
-| `relay.entryOwnership` | `"any"` | Ownership filter for the multihop entry relay. Parsed but not applied: the `mullvad` CLI has no setter |
-| `apiAccess.direct` | `true` | Direct API access |
-| `apiAccess.mullvadBridges` | `true` | API via bridge relay (when direct is blocked) |
-| `apiAccess.encryptedDnsProxy` | `true` | API via DoH (when direct is blocked) |
-| `tunnel.quantumResistant` | `"on"` | Post-quantum key exchange |
-| `tunnel.ipv6` | `true` | IPv6 inside tunnel |
-| `tunnel.mtu` | `null` | Tunnel MTU. `null` = daemon picks |
-| `tunnel.rotationIntervalHours` | `null` | WireGuard key rotation interval in hours. `null` = daemon default |
-| `tunnel.daita.enable` | `true` | DAITA (Defense Against AI-guided Traffic Analysis) |
-| `tunnel.daita.useMultihopIfNecessary` | `true` | Auto-multihop when chosen exit doesn't support DAITA |
-
-### GUI (`programs.mullvad-vpn-gui.settings`)
-
-The GUI writes `~/.config/Mullvad VPN/gui_settings.json` itself, so these values seed that file once, when it is absent, and the GUI owns it after that. Delete the file to re-seed it from the module.
-
-| Option | Default | What it does |
-|--------|---------|--------------|
-| `preferredLocale` | `"system"` | GUI language |
-| `autoConnect` | `false` | GUI-level auto-connect (when window opens; usually use daemon-level instead) |
-| `enableSystemNotifications` | `true` | Status notifications |
-| `monochromaticIcon` | `true` | Tray icon style |
-| `startMinimized` | `true` | Start in tray, not as window |
-| `unpinnedWindow` | `true` | Window movable/resizable freely |
-| `animateMap` | `false` | Map animations (off saves CPU) |
-
-## What's NOT in this module (intentionally)
-
-- **OpenVPN bridges** — deprecated; use `obfuscation.mode = "udp2tcp"` or `"shadowsocks"`
-- **Per-relay overrides / custom relay lists** — per-device state, use `mullvad relay override` / `mullvad custom-list` CLI
-- **Account login** — sensitive, `mullvad account login` stays manual per device
-- **Encrypted DNS Proxy (browser)** — Mullvad Browser feature, separate from the VPN daemon
-
-## Usage
-
-Enable the declarative NixOS module:
+Then import the module and switch it on:
 
 ```nix
 {
-  services.mullvad-vpn-declarative = {
-    enable = true;
-    settings = {
-      autoConnect = true;
-      lockdownMode = true;
-      dns = {
-        mode = "default";
-        blockAds = true;
-        blockTrackers = true;
-      };
-      obfuscation.wireguardPort = 51820;
-      tunnel.daita.enable = true;
-    };
+  imports = [ inputs.mullvad-vpn.nixosModules.default ];
+  services.mullvad-vpn-declarative.enable = true;
+}
+```
+
+That turns on nixpkgs' `services.mullvad-vpn` with its desktop app, and loads
+the `wireguard` kernel module before the daemon starts. Log in once on each
+machine with `mullvad account login`, which stays a manual step.
+
+The module applies its defaults too. With nothing else set it turns on
+auto-connect, multihop, DAITA, quantum-resistant key exchange and tracker
+blocking.
+
+## Settings
+
+```nix
+{
+  services.mullvad-vpn-declarative.settings = {
+    autoConnect = true;
+    lockdownMode = true;
+    dns.blockAds = true;
+    dns.blockTrackers = true;
+    obfuscation.wireguardPort = 51820;
+    tunnel.daita.enable = true;
   };
 }
 ```
 
-Enabling the module also enables the desktop app (`services.mullvad-vpn.gui.enable`), loads the `wireguard` kernel module, and starts `mullvad-daemon.service` only after `systemd-modules-load.service`.
+The settings are applied again on every `nixos-rebuild switch`, so a change
+made in the app or with the `mullvad` command is reverted at the next switch.
 
-### Home Manager module (GUI preferences)
+The ones you are likely to set first, all under `settings`:
+
+| Option | What it is for |
+|---|---|
+| `autoConnect` | Connect when the daemon starts |
+| `lockdownMode` | Block all traffic while disconnected, the kill switch |
+| `dns.blockAds`, `dns.blockTrackers`, `dns.blockMalware` | Content blockers on Mullvad's DNS |
+| `dns.mode`, `dns.customServers` | Use your own DNS servers instead of Mullvad's |
+| `multihop.enable` | Route through an entry relay, then an exit relay |
+| `tunnel.daita.enable` | DAITA, Mullvad's defence against traffic analysis |
+| `obfuscation.mode` | How the traffic is disguised where a network blocks it |
+
+Every option, with its type and default: [docs/OPTIONS.md](docs/OPTIONS.md).
+
+The relay location is not one of the module's settings, so a switch leaves it
+alone. Choose it with `mullvad relay set location se`, here Sweden.
+`mullvad status` shows the connection, and `mullvad connect` and
+`mullvad disconnect` work as they always do.
+
+## The desktop app's preferences
+
+A Home Manager module installs the app for the user and seeds its preferences.
+Import it, then set `programs.mullvad-vpn-gui.enable = true` in the user's
+Home Manager configuration:
 
 ```nix
 {
-  programs.mullvad-vpn-gui = {
-    enable = true;
-  };
+  home-manager.sharedModules = [ inputs.mullvad-vpn.homeModules.default ];
 }
 ```
 
-### CLI
+The app writes `~/.config/Mullvad VPN/gui_settings.json` itself. So
+`programs.mullvad-vpn-gui.settings` seeds that file once, when it is absent,
+and the app owns it after that. Delete the file to seed it again.
+`programs.mullvad-vpn-gui.autostart` launches the app when the session starts.
 
-```bash
-mullvad status                   # connection status
-mullvad relay set location se    # switch to Sweden
-mullvad connect                  # connect
-mullvad disconnect               # disconnect
-```
+## Known limits
 
-## Development
+- `updateDefaultLocation`, `relay.entryProviders` and `relay.entryOwnership`
+  are accepted but not applied: the `mullvad` command has no setter for them.
+- `tunnel.mtu` and `tunnel.rotationIntervalHours` run no command while they
+  are `null`, so the module does not reset a value the daemon already holds.
+- The content blockers apply only with Mullvad's DNS. `dns.mode = "custom"`
+  with no `dns.customServers` falls back to Mullvad's DNS.
+- Per-relay overrides and custom relay lists stay per machine, like the
+  login: `mullvad relay override` and `mullvad custom-list`.
+- OpenVPN bridges are deprecated and not covered. Set `obfuscation.mode` to
+  `"udp2tcp"` or `"shadowsocks"` instead.
+- Mullvad Browser's encrypted DNS proxy is a browser feature and not covered.
 
-```bash
-nix develop
-nix flake check --no-build
-nix build
-nix fmt
-```
+## When a setting does not take effect
 
-## How it works (under the hood)
+`mullvad-apply-settings.service` applies the settings once the daemon is up.
+It tries every setting, logs each one that fails with the command's own error,
+and then fails itself. `systemctl --failed` lists it, and
+`journalctl -u mullvad-apply-settings.service` shows the log.
 
-1. `services.mullvad-vpn.enable = true` starts `mullvad-daemon.service` (vanilla NixOS)
-2. A `mullvad-apply-settings.service` oneshot runs after the daemon
-3. It waits up to 30 seconds for the daemon's IPC to come up
-4. It backs up the live `settings.json` to `settings.json.nixos-bak`, then applies each declared setting through the `mullvad <subcommand> set` CLI (DNS, relay provider, kill switch, auto-connect, ...)
-5. Every setting is attempted; any that fails is logged with the CLI's own error and the unit exits non-zero after the pass, so `systemctl --failed` shows a setting that did not take effect
+The service gives up when the daemon has not answered within 30 seconds.
+Before it changes anything it copies the live settings to
+`/etc/mullvad-vpn/settings.json.nixos-bak`, to compare or restore by hand.
 
-Idempotent — re-runs on every `nixos-rebuild switch` so GUI/CLI drift gets reverted.
+## More
 
-<!-- BEGIN generated:options -->
-## Options
-
-NixOS module: `services.mullvad-vpn-declarative.*` (see [`nixos-module.nix`](nixos-module.nix))
-
-Home Manager module: `programs.mullvad-vpn-gui.*` (see [`hm-module.nix`](hm-module.nix))
-<!-- END generated:options -->
+- [docs/DESIGN.md](docs/DESIGN.md): what each setting runs, what is left out
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): the dev shell, the checks, CI
 
 ## License
 
-MIT for the packaging code in this repo. Mullvad VPN itself is **GPL-3.0** — see [the upstream repo](https://github.com/mullvad/mullvadvpn-app) for the application source and license. The Mullvad daemon and GUI packages come from nixpkgs; this repo adds only the declarative configuration, with no overlay and no version pin.
-
-<!-- BEGIN generated:footer -->
-<!-- END generated:footer -->
+MIT for the packaging code in this repo. Mullvad VPN itself is **GPL-3.0**.
+See [the upstream repo](https://github.com/mullvad/mullvadvpn-app) for the
+application source and license. The Mullvad daemon and GUI packages come from
+nixpkgs; this repo adds only the declarative configuration, with no overlay
+and no version pin.

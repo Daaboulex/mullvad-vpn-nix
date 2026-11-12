@@ -436,15 +436,16 @@ in
                   type = lib.types.nullOr lib.types.int;
                   default = null;
                   example = 1280;
-                  description = "Override tunnel MTU. null = daemon auto.";
+                  description = "Tunnel MTU. null sends nothing, so the daemon keeps the value it has.";
                 };
                 rotationIntervalHours = lib.mkOption {
                   type = lib.types.nullOr lib.types.int;
                   default = null;
                   example = 24;
                   description = ''
-                    WireGuard key rotation interval in hours.
-                    null = daemon default (~7 days).
+                    WireGuard key rotation interval in hours. null sends
+                    nothing, so the daemon keeps the interval it has
+                    (about 7 days on a fresh install).
                   '';
                 };
                 daita = lib.mkOption {
