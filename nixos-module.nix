@@ -212,6 +212,7 @@ in
 
           dns = lib.mkOption {
             default = { };
+            description = "The DNS the tunnel uses: Mullvad's own, with its content blockers, or servers you name.";
             type = lib.types.submodule {
               options = {
                 mode = lib.mkOption {
@@ -220,32 +221,39 @@ in
                     "custom"
                   ];
                   default = "default";
+                  description = "`default` uses Mullvad's DNS with the blockers set here. `custom` uses `customServers` and no blocker.";
                 };
                 # Defaults match Mullvad daemon defaults (settings_version=15):
                 # only trackers blocked by default. All other blockers are opt-in.
                 blockAds = lib.mkOption {
                   type = lib.types.bool;
                   default = false;
+                  description = "Block ads through Mullvad's DNS. Applies while custom servers are not in use.";
                 };
                 blockTrackers = lib.mkOption {
                   type = lib.types.bool;
                   default = true;
+                  description = "Block trackers through Mullvad's DNS. Applies while custom servers are not in use.";
                 };
                 blockMalware = lib.mkOption {
                   type = lib.types.bool;
                   default = false;
+                  description = "Block malware domains through Mullvad's DNS. Applies while custom servers are not in use.";
                 };
                 blockAdultContent = lib.mkOption {
                   type = lib.types.bool;
                   default = false;
+                  description = "Block adult content through Mullvad's DNS. Applies while custom servers are not in use.";
                 };
                 blockGambling = lib.mkOption {
                   type = lib.types.bool;
                   default = false;
+                  description = "Block gambling sites through Mullvad's DNS. Applies while custom servers are not in use.";
                 };
                 blockSocialMedia = lib.mkOption {
                   type = lib.types.bool;
                   default = false;
+                  description = "Block social media through Mullvad's DNS. Applies while custom servers are not in use.";
                 };
                 customServers = lib.mkOption {
                   type = lib.types.listOf lib.types.str;
@@ -262,6 +270,7 @@ in
 
           obfuscation = lib.mkOption {
             default = { };
+            description = "How the WireGuard traffic is disguised where a network blocks or throttles it.";
             type = lib.types.submodule {
               options = {
                 mode = lib.mkOption {
@@ -302,6 +311,7 @@ in
 
           multihop = lib.mkOption {
             default = { };
+            description = "Routing the tunnel through two relays instead of one.";
             type = lib.types.submodule {
               options.enable = lib.mkOption {
                 type = lib.types.bool;
@@ -381,6 +391,7 @@ in
 
           apiAccess = lib.mkOption {
             default = { };
+            description = "The ways the daemon may reach Mullvad's API.";
             type = lib.types.submodule {
               options = {
                 direct = lib.mkOption {
@@ -404,6 +415,7 @@ in
 
           tunnel = lib.mkOption {
             default = { };
+            description = "Settings of the WireGuard tunnel itself.";
             type = lib.types.submodule {
               options = {
                 quantumResistant = lib.mkOption {
@@ -413,10 +425,12 @@ in
                     "off"
                   ];
                   default = "on";
+                  description = "Quantum-resistant key exchange for the tunnel. `auto` leaves the choice to the daemon.";
                 };
                 ipv6 = lib.mkOption {
                   type = lib.types.bool;
                   default = true;
+                  description = "Carry IPv6 traffic inside the tunnel.";
                 };
                 mtu = lib.mkOption {
                   type = lib.types.nullOr lib.types.int;
@@ -435,6 +449,7 @@ in
                 };
                 daita = lib.mkOption {
                   default = { };
+                  description = "DAITA, Mullvad's defence against traffic analysis.";
                   type = lib.types.submodule {
                     options = {
                       enable = lib.mkOption {

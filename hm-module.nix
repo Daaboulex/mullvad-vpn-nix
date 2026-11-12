@@ -52,6 +52,7 @@ in
           enableSystemNotifications = lib.mkOption {
             type = lib.types.bool;
             default = true;
+            description = "Show the app's desktop notifications.";
           };
           monochromaticIcon = lib.mkOption {
             type = lib.types.bool;
